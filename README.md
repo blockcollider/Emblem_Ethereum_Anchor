@@ -1,4 +1,7 @@
 # Emblem Ethereum Anchor
+### Testing
+Tests can be conducted using `truffle test` (it is suggested to use Ganache while testing)
+
 ### Dev Dependencies
 - Truffle v4.1.14
 - Node 8.17.0
