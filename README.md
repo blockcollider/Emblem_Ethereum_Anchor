@@ -12,10 +12,10 @@ The strength of any open-source technology is in its community. Overline’s off
 #### Reporting a verified Github issue: 
 - 125 OL (low)
 - 155 OL (medium)
-- 575 OL (high)
+- 575 OL + $100 ETH (high)
 
 #### Committing a solution to a verified issue: 
-- 2000 OL (low)
+- 2000 OL + $250 ETH(low)
 - 2000 OL + $500 ETH (medium)
 - 2000 OL + $1500 ETH (high)
 
