@@ -23,6 +23,7 @@ The strength of any open-source technology is in its community. Overline’s off
 These rewards happen based on how quickly you find an issue. 
 - Rare Forged Emblem for first "high" issue 
 - Rare Forged Emblem for first "high" committed solutions
+- Additional $500 ETH for first verified "high" committed solution 
 - Access to Overline Basecamp for all high issues and committed solutions. 
 - Founder Hoodie for the first 3 "high" commited solutions
 - EMB Nation "Developer Badge" for any verified issues. 
