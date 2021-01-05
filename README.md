@@ -3,7 +3,7 @@
 - Truffle v4.1.14
 - Node 8.17.0
 
-### Bug Bounty Instructions
+### Bug Bounty Instructions (January 4th) 
 
 Required: An Overline or Ethereum address (create one online here: https://wallet.overline.network)
 
