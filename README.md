@@ -17,7 +17,7 @@ The strength of any open-source technology is in its community. Overline’s off
 #### Committing a solution to a verified issue: 
 - 2000 OL + $250 ETH(low)
 - 2000 OL + $500 ETH (medium)
-- 2000 OL + $1500 ETH (high)
+- 2000 OL + $1000 ETH (high)
 
 ### Treasure Chest Rewards
 These rewards happen based on how quickly you find an issue. 
