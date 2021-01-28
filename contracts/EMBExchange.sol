@@ -1,8 +1,8 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.7.6;
 
-import "openzeppelin-solidity/contracts/math/SafeMath.sol";
-import "openzeppelin-solidity/contracts/ReentrancyGuard.sol";
-import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "./LeasedEmblem.sol";
 import "./Emblem.sol";
 
@@ -11,7 +11,7 @@ contract EMBExchange is ReentrancyGuard, Ownable {
 
   struct Order {
     uint256 id;
-    address maker;
+    address payable maker;
     bytes12 makerVanity;
     uint256 amount;
     uint256 price;
@@ -45,7 +45,7 @@ contract EMBExchange is ReentrancyGuard, Ownable {
 
   Emblem EMB;
   LeasedEmblem LEMB;
-  address feeReciever;
+  address payable feeReciever;
 
   // makes sure weiSend of current tx is reset
   modifier weiSendGuard() {
@@ -61,7 +61,7 @@ contract EMBExchange is ReentrancyGuard, Ownable {
 
   event OrderCancelled(uint256 id, address maker, uint256 amount, uint256 price, bool demand, uint256 createdAt);
 
-  constructor(address _emb, address _lemb, address _feeReciever) public {
+  constructor(address _emb, address _lemb, address payable _feeReciever) public {
     EMB = Emblem(_emb);
     LEMB = LeasedEmblem(_lemb);
     feeReciever = _feeReciever;
@@ -90,7 +90,7 @@ contract EMBExchange is ReentrancyGuard, Ownable {
     return highestId;
   }
 
-  function _placeOrder(address maker, uint256 price, uint256 amount, bool demand,bytes12 vanity) internal returns (bool){
+  function _placeOrder(address payable maker, uint256 price, uint256 amount, bool demand,bytes12 vanity) internal returns (bool){
 
     // validate input
     if (amount <= 0 ||
@@ -102,17 +102,17 @@ contract EMBExchange is ReentrancyGuard, Ownable {
       if(weiSend <= 0 || weiSend < amount.mul(price).div(EMBPrecision)) return (false);
     }
     else {
-      if ( EMB.balanceOf(maker) - LEMB.getAmountForUserMining(maker) < amount || (EMB.allowance(maker, this) - LEMB.getAmountForUserMining(maker) < amount)) return (false);
+      if ( EMB.balanceOf(maker) - LEMB.getAmountForUserMining(maker) < amount || (EMB.allowance(maker, address(this)) - LEMB.getAmountForUserMining(maker) < amount)) return (false);
     }
 
     uint256 id = getNewId();
 
-    orders[id] = Order(id, maker,vanity, amount, price, demand,now);
+    orders[id] = Order(id, maker,vanity, amount, price, demand,block.timestamp);
     allOrders.push(id);
     allOrdersIndex[id] = allOrders.length.sub(1);
 
     if(demand) weiSend = weiSend.sub(amount.mul(price).div(EMBPrecision));
-    else EMB.transferFrom(maker, this, amount);
+    else EMB.transferFrom(maker, address(this), amount);
 
     _addOrderToUser(maker, id);
 
@@ -135,7 +135,7 @@ contract EMBExchange is ReentrancyGuard, Ownable {
     }
   }
 
-  function _takeOrder(address taker, uint256 id, uint256 amount, bytes12 vanity) internal returns (bool) {
+  function _takeOrder(address payable taker, uint256 id, uint256 amount, bytes12 vanity) internal returns (bool) {
     // validate inputs
     if (id <= 0) return (false);
 
@@ -154,7 +154,7 @@ contract EMBExchange is ReentrancyGuard, Ownable {
     if(order.demand){
 
       //ensure that you cannot game the allowance of EMB
-      if ( EMB.balanceOf(taker) - LEMB.getAmountForUserMining(taker) < amount || (EMB.allowance(taker, this) - LEMB.getAmountForUserMining(taker) < amount)) return (false);
+      if ( EMB.balanceOf(taker) - LEMB.getAmountForUserMining(taker) < amount || (EMB.allowance(taker, address(this)) - LEMB.getAmountForUserMining(taker) < amount)) return (false);
 
       uint256 fee_maker = amount.mul(getFee(order.maker, order.makerVanity, true)).div(feeDenomination);
 
@@ -181,7 +181,7 @@ contract EMBExchange is ReentrancyGuard, Ownable {
       //pay maker
       weiSend = weiSend.sub(amount.mul(order.price).div(EMBPrecision));
 
-      fee_maker = amount.mul(order.price).div(EMBPrecision).mul(getFee(order.maker, order.makerVanity, true)).div(feeDenomination);
+      uint256 fee_maker = amount.mul(order.price).div(EMBPrecision).mul(getFee(order.maker, order.makerVanity, true)).div(feeDenomination);
 
       //transfer ETH to feeReciever from maker
       feeReciever.transfer(fee_maker);
@@ -189,7 +189,7 @@ contract EMBExchange is ReentrancyGuard, Ownable {
       //transfer ETH from taker to maker
       order.maker.transfer(amount.mul(order.price).div(EMBPrecision) - fee_maker);
 
-      fee_taker = amount.mul(getFee(taker, vanity, false)).div(feeDenomination);
+      uint256 fee_taker = amount.mul(getFee(taker, vanity, false)).div(feeDenomination);
 
       //transfer EMB to feeReciever from taker
       EMB.transfer(feeReciever, fee_taker);
@@ -198,7 +198,7 @@ contract EMBExchange is ReentrancyGuard, Ownable {
       EMB.transfer(taker, amount - fee_taker);
     }
 
-    emit OrderFilled(id, order.maker, taker, order.amount, amount, order.price, order.demand, now);
+    emit OrderFilled(id, order.maker, taker, order.amount, amount, order.price, order.demand, block.timestamp);
 
     order.amount = order.amount - amount;
 
@@ -221,10 +221,9 @@ contract EMBExchange is ReentrancyGuard, Ownable {
     uint256 lastOrderIndex = allOrders.length.sub(1);
     uint256 lastOrder = allOrders[lastOrderIndex];
     allOrders[orderIndex] = lastOrder;
-    allOrders[lastOrderIndex] = 0;
-    allOrdersIndex[id] = 0;
+    delete allOrdersIndex[id];
     allOrdersIndex[lastOrder] = orderIndex;
-    allOrders.length--;
+    allOrders.pop();
 
     //pay back on cancellation
     if(orders[id].amount != 0){
@@ -254,11 +253,11 @@ contract EMBExchange is ReentrancyGuard, Ownable {
     return amount;
   }
 
-  function retrieveMyOrders() public view returns(uint256[]) {
+  function retrieveMyOrders() public view returns(uint256[] memory) {
     return ownedOrders[msg.sender];
   }
 
-  function retrieveOrders() public view returns(uint256[]) {
+  function retrieveOrders() public view returns(uint256[] memory) {
     return allOrders;
   }
 
@@ -279,10 +278,8 @@ contract EMBExchange is ReentrancyGuard, Ownable {
     uint256 lastOrderId = ownedOrders[_from][lastOrderIndex];
 
     ownedOrders[_from][orderIndex] = lastOrderId;
-    ownedOrders[_from][lastOrderIndex] = 0;
-    ownedOrders[_from].length--;
-
-    ownedOrdersIndex[_from][_orderId] = 0;
+    ownedOrders[_from].pop();
+    delete ownedOrdersIndex[_from][_orderId];
     ownedOrdersIndex[_from][lastOrderId] = orderIndex;
   }
 
@@ -307,7 +304,7 @@ contract EMBExchange is ReentrancyGuard, Ownable {
   }
 
   //take a few orders and place Order if order to place
-  function takeOrders(uint256 []ids,uint256[]amounts, uint256 price, uint256 amount, bool demand,bytes12 vanity) external payable weiSendGuard nonReentrant returns (bool) {
+  function takeOrders(uint256[] memory ids, uint256[] memory amounts, uint256 price, uint256 amount, bool demand,bytes12 vanity) external payable weiSendGuard nonReentrant returns (bool) {
     require(ids.length == amounts.length);
 
     bool allSuccess = true;

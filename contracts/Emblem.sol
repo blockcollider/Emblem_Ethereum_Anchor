@@ -1,12 +1,12 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.7.6;
 
-import "openzeppelin-solidity/contracts/token/ERC20/StandardToken.sol";
-import "openzeppelin-solidity/contracts/token/ERC20/DetailedERC20.sol";
-import "openzeppelin-solidity/contracts/math/SafeMath.sol";
-import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20Capped.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "./LeasedEmblem.sol";
 
-contract Emblem is DetailedERC20, StandardToken, Ownable {
+contract Emblem is ERC20, ERC20Capped, Ownable {
   using SafeMath for uint256;
 
    mapping (bytes12 => address) public vanityAddresses;
@@ -35,9 +35,9 @@ contract Emblem is DetailedERC20, StandardToken, Ownable {
    event ApprovedVanity(address from, address to, bytes12 vanity);
    event VanityPurchased(address from, bytes12 vanity);
 
-   constructor(string _name, string _ticker, uint8 _decimal, uint256 _supply, address _wallet, address _lemb) DetailedERC20(_name, _ticker, _decimal) public {
-     totalSupply_ = _supply;
-     balances[_wallet] = _supply;
+   constructor(string memory _name, string memory _ticker, uint8 _decimal, uint256 _supply, address _wallet, address _lemb) public ERC20(_name, _ticker) ERC20Capped(_supply) {
+     _mint(_wallet,_supply);
+     _setupDecimals(_decimal);
      LEMB = LeasedEmblem(_lemb);
    }
 
@@ -70,15 +70,6 @@ contract Emblem is DetailedERC20, StandardToken, Ownable {
      return vanityFeeEnabled[vanity] && useVanityFees;
    }
 
-   function setTicker(string _ticker) public onlyOwner {
-     symbol = _ticker;
-   }
-
-   function approveOwner(uint256 _value) public onlyOwner returns (bool) {
-     allowed[msg.sender][address(this)] = _value;
-     return true;
-   }
-
    function vanityAllowance(address _owner, bytes12 _vanity, address _spender) public view returns (bool) {
      return allowedVanities[_owner][_vanity] == _spender;
    }
@@ -87,11 +78,11 @@ contract Emblem is DetailedERC20, StandardToken, Ownable {
      return vanityAddresses[_vanity];
    }
 
-   function getAllVanities() public view returns (bytes12[]){
+   function getAllVanities() public view returns (bytes12[] memory){
      return allVanities;
    }
 
-   function getMyVanities() public view returns (bytes12[]){
+   function getMyVanities() public view returns (bytes12[] memory){
      return ownedVanities[msg.sender];
    }
 
@@ -110,7 +101,7 @@ contract Emblem is DetailedERC20, StandardToken, Ownable {
    }
 
    function transferVanity(bytes12 van, address newOwner) public returns (bool) {
-     require(newOwner != 0x0);
+     require(newOwner != address(0));
      require(vanityAddresses[van] == msg.sender);
 
      vanityAddresses[van] = newOwner;
@@ -123,9 +114,9 @@ contract Emblem is DetailedERC20, StandardToken, Ownable {
 
      ownedVanities[msg.sender][vanityIndex] = lastVanity;
      ownedVanities[msg.sender][lastVanityIndex] = "";
-     ownedVanities[msg.sender].length--;
+     ownedVanities[msg.sender].pop();
 
-     ownedVanitiesIndex[msg.sender][van] = 0;
+     delete ownedVanitiesIndex[msg.sender][van];
      ownedVanitiesIndex[msg.sender][lastVanity] = vanityIndex;
 
      emit TransferVanity(msg.sender, newOwner,van);
@@ -155,9 +146,9 @@ contract Emblem is DetailedERC20, StandardToken, Ownable {
 
      ownedVanities[_from][vanityIndex] = lastVanity;
      ownedVanities[_from][lastVanityIndex] = "";
-     ownedVanities[_from].length--;
+     ownedVanities[_from].pop();
 
-     ownedVanitiesIndex[_from][_vanity] = 0;
+     delete ownedVanitiesIndex[_from][_vanity];
      ownedVanitiesIndex[_from][lastVanity] = vanityIndex;
 
      emit TransferVanity(msg.sender, _to,_vanity);
@@ -169,14 +160,10 @@ contract Emblem is DetailedERC20, StandardToken, Ownable {
      require(vanityAddresses[van] == address(0));
 
      for(uint8 i = 0; i < 12; i++){
-       require((van[i] >= 48 && van[i] <= 57) || (van[i] >= 65 && van[i] <= 90));
+       require((uint8(van[i]) >= 48 && uint8(van[i]) <= 57) || (uint8(van[i]) >= 65 && uint8(van[i]) <= 90));
      }
 
-     require(canTransfer(msg.sender,vanityPurchaseCost));
-
-     balances[msg.sender] = balances[msg.sender].sub(vanityPurchaseCost);
-     balances[address(this)] = balances[address(this)].add(vanityPurchaseCost);
-     emit Transfer(msg.sender, address(this), vanityPurchaseCost);
+     transferFrom(msg.sender, address(this), vanityPurchaseCost);
 
      vanityAddresses[van] = msg.sender;
      ownedVanities[msg.sender].push(van);
@@ -196,18 +183,18 @@ contract Emblem is DetailedERC20, StandardToken, Ownable {
    }
 
    function canTransfer(address _account,uint256 _value) internal view returns (bool) {
-      return (!frozenAccounts[_account] && !completeFreeze && (_value + LEMB.getAmountForUserMining(_account) <= balances[_account]));
+      return (!frozenAccounts[_account] && !completeFreeze && (_value + LEMB.getAmountForUserMining(_account) <= balanceOf(_account)));
    }
 
-   function transfer(address _to, uint256 _value) public returns (bool){
+   function transfer(address _to, uint256 _value) public override returns (bool){
       require(canTransfer(msg.sender,_value));
       super.transfer(_to,_value);
    }
 
-   function multiTransfer(bytes32[] _addressesAndAmounts) public {
+   function multiTransfer(bytes32[] memory _addressesAndAmounts) public {
       for (uint i = 0; i < _addressesAndAmounts.length; i++) {
-          address to = address(_addressesAndAmounts[i] >> 96);
-          uint amount = uint(uint56(_addressesAndAmounts[i]));
+          address to = address(uint256(_addressesAndAmounts[i] >> 96));
+          uint amount = uint(uint(_addressesAndAmounts[i] << 160));
           transfer(to, amount);
       }
    }
@@ -236,30 +223,32 @@ contract Emblem is DetailedERC20, StandardToken, Ownable {
    }
 
 
-   function transferFrom(address _from, address _to, uint256 _value) public returns (bool){
+   function transferFrom(address _from, address _to, uint256 _value) public override returns (bool){
       require(!completeFreeze);
       if(msg.sender != leaseExchange) require(canTransfer(_from,_value));
       super.transferFrom(_from,_to,_value);
    }
 
-   function decreaseApproval(address _spender,uint256 _subtractedValue) public returns (bool) {
-
-
+   function decreaseAllowance(address _spender,uint256 _subtractedValue) public override returns (bool) {
      if(_spender == leaseExchange) {
-       require(allowed[msg.sender][_spender].sub(_subtractedValue) >= LEMB.getAmountForUserMining(msg.sender));
+       require(allowance(msg.sender,_spender).sub(_subtractedValue) >= LEMB.getAmountForUserMining(msg.sender));
      }
-     super.decreaseApproval(_spender,_subtractedValue);
+     super.decreaseAllowance(_spender,_subtractedValue);
    }
 
-   function approve(address _spender, uint256 _value) public returns (bool) {
+   function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual override(ERC20, ERC20Capped) {
+        super._beforeTokenTransfer(from, to, amount);
 
+        if (from == address(0)) { // When minting tokens
+            require(totalSupply().add(amount) <= cap(), "ERC20Capped: cap exceeded");
+        }
+    }
 
+   function approve(address _spender, uint256 _value) public override returns (bool) {
      if(_spender == leaseExchange){
        require(_value >= LEMB.getAmountForUserMining(msg.sender));
      }
-
-     allowed[msg.sender][_spender] = _value;
-     emit Approval(msg.sender, _spender, _value);
+     _approve(msg.sender, _spender, _value);
      return true;
    }
 

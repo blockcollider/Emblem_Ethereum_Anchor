@@ -1,8 +1,8 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.7.6;
 
-import "openzeppelin-solidity/contracts/math/SafeMath.sol";
-import "openzeppelin-solidity/contracts/ReentrancyGuard.sol";
-import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "./LeasedEmblem.sol";
 import "./Emblem.sol";
 
@@ -11,7 +11,7 @@ contract ExistingLeaseExchange is ReentrancyGuard,Ownable {
 
   struct Order {
     uint256 id;
-    address maker;
+    address payable maker;
     bytes12 makerVanity;
     uint256 amount;
     uint256 price;
@@ -54,7 +54,7 @@ contract ExistingLeaseExchange is ReentrancyGuard,Ownable {
 
   LeasedEmblem LEMB;
   Emblem EMB;
-  address feeReciever;
+  address payable feeReciever;
 
 
   // makes sure weiSend of current tx is reset
@@ -71,7 +71,7 @@ contract ExistingLeaseExchange is ReentrancyGuard,Ownable {
 
   event OrderCancelled(uint256 id, address maker, uint256 amount, uint256 price, bool demand, uint256 duration, uint256 createdAt);
 
-  constructor(address _emb, address _lemb, address _feeReciever) public {
+  constructor(address _emb, address _lemb, address payable _feeReciever) public {
     EMB = Emblem(_emb);
     LEMB = LeasedEmblem(_lemb);
     feeReciever = _feeReciever;
@@ -100,7 +100,7 @@ contract ExistingLeaseExchange is ReentrancyGuard,Ownable {
     return highestId;
   }
 
-  function _placeOrder(address maker, uint256 price, uint256 amount, uint256 lembId, bool demand, uint256 duration, uint256 tradeDuration, bytes12 vanity) internal returns (bool){
+  function _placeOrder(address payable maker, uint256 price, uint256 amount, uint256 lembId, bool demand, uint256 duration, uint256 tradeDuration, bytes12 vanity) internal returns (bool){
 
     uint256 id = getNewId();
     // validate input
@@ -115,26 +115,26 @@ contract ExistingLeaseExchange is ReentrancyGuard,Ownable {
       if(weiSend <= 0 || weiSend < amount.mul(price).div(EMBPrecision) || tradeDuration <= 0 || tradeDuration > sixMonths) return (false);
     }
     else {
-      if(duration != LEMB.getDuration(lembId) || !LEMB.exists(lembId) || LEMB.ownerOf(lembId) != maker || amount > LEMB.getAmount(lembId) || LEMB.getApproved(lembId) != address(this)) return (false);
+      if(duration != LEMB.getDuration(lembId) || LEMB.ownerOf(lembId) != maker || amount > LEMB.getAmount(lembId) || LEMB.getApproved(lembId) != address(this)) return (false);
     }
 
     if(demand) {
       weiSend = weiSend.sub(amount.mul(price).div(EMBPrecision));
-      orders[id] = Order(id, maker,vanity, amount, price, demand, duration,now,now + tradeDuration,0);
-      emit OrderPlaced(id, maker, amount, price,demand, duration,now,0);
+      orders[id] = Order(id, maker,vanity, amount, price, demand, duration,block.timestamp,block.timestamp + tradeDuration,0);
+      emit OrderPlaced(id, maker, amount, price,demand, duration,block.timestamp,0);
     }
     else {
-      LEMB.transferFrom(maker, this, lembId);
+      LEMB.transferFrom(maker, address(this), lembId);
       if(amount < LEMB.getAmount(lembId)){
         uint256 newLembId = LEMB.getNewId();
         LEMB.splitLEMB(lembId, amount);
-        LEMB.transferFrom(this,maker,lembId);
-        orders[id] = Order(id, maker,vanity, amount, price, demand, duration,now,LEMB.getTradeExpiry(lembId),newLembId);
-        emit OrderPlaced(id, maker, amount, price,demand, duration,now,newLembId);
+        LEMB.transferFrom(address(this),maker,lembId);
+        orders[id] = Order(id, maker,vanity, amount, price, demand, duration,block.timestamp,LEMB.getTradeExpiry(lembId),newLembId);
+        emit OrderPlaced(id, maker, amount, price,demand, duration,block.timestamp,newLembId);
       }
       else if(amount == LEMB.getAmount(lembId)){
-        orders[id] = Order(id, maker,vanity, amount, price, demand, duration,now,LEMB.getTradeExpiry(lembId),lembId);
-        emit OrderPlaced(id, maker, amount, price,demand, duration,now,lembId);
+        orders[id] = Order(id, maker,vanity, amount, price, demand, duration,block.timestamp,LEMB.getTradeExpiry(lembId),lembId);
+        emit OrderPlaced(id, maker, amount, price,demand, duration,block.timestamp,lembId);
       }
     }
 
@@ -147,7 +147,7 @@ contract ExistingLeaseExchange is ReentrancyGuard,Ownable {
     return (true);
   }
 
-  function _takeOrder(address taker, uint256 id, uint256 amount, uint256 lembId, uint256 fee_taker, uint256 fee_maker) internal returns (bool) {
+  function _takeOrder(address payable taker, uint256 id, uint256 amount, uint256 lembId, uint256 fee_taker, uint256 fee_maker) internal returns (bool) {
     // validate inputs
 
     if (id <= 0) return (false);
@@ -167,38 +167,38 @@ contract ExistingLeaseExchange is ReentrancyGuard,Ownable {
     if(order.demand){
 
       //ensure that you cannot game the allowance of EMB
-      if(!LEMB.exists(lembId) || LEMB.ownerOf(lembId) != taker || amount > LEMB.getAmount(lembId) || LEMB.getApproved(lembId) != address(this)) return (false);
+      if(LEMB.ownerOf(lembId) != taker || amount > LEMB.getAmount(lembId) || LEMB.getApproved(lembId) != address(this)) return (false);
 
       //transfer EMB from taker to Lease Address
-      LEMB.transferFrom(taker, this, lembId);
+      LEMB.transferFrom(taker, address(this), lembId);
 
       if(amount < LEMB.getAmount(lembId)){
         //split the LEMB for the fee Reciever
         uint256 feeRecieverLembId = LEMB.getNewId();
         LEMB.splitLEMB(lembId, fee_maker);
-        LEMB.transferFrom(this,feeReciever,feeRecieverLembId);
+        LEMB.transferFrom(address(this),feeReciever,feeRecieverLembId);
 
         //split the LEMB for the maker
         uint256 makerLembId = LEMB.getNewId();
         LEMB.splitLEMB(lembId, amount - fee_maker);
-        LEMB.transferFrom(this,order.maker,makerLembId);
+        LEMB.transferFrom(address(this),order.maker,makerLembId);
 
         //send back leftover LEMB
-        LEMB.transferFrom(this,taker,lembId);
+        LEMB.transferFrom(address(this),taker,lembId);
 
-        emit OrderFilled(id, order.maker, taker, order.amount, amount, order.price, order.duration, makerLembId, now);
+        emit OrderFilled(id, order.maker, taker, order.amount, amount, order.price, order.duration, makerLembId, block.timestamp);
       }
       else if(amount == LEMB.getAmount(lembId)){
 
         //split the LEMB for the fee Reciever
-        feeRecieverLembId = LEMB.getNewId();
+        uint256 feeRecieverLembId = LEMB.getNewId();
         LEMB.splitLEMB(lembId, fee_maker);
-        LEMB.transferFrom(this,feeReciever,feeRecieverLembId);
+        LEMB.transferFrom(address(this),feeReciever,feeRecieverLembId);
 
         //send the rest of the lembId to the maker
-        LEMB.transferFrom(this,order.maker,lembId);
+        LEMB.transferFrom(address(this),order.maker,lembId);
 
-        emit OrderFilled(id, order.maker, taker, order.amount, amount, order.price, order.duration, lembId, now);
+        emit OrderFilled(id, order.maker, taker, order.amount, amount, order.price, order.duration, lembId, block.timestamp);
       }
 
       //
@@ -222,26 +222,26 @@ contract ExistingLeaseExchange is ReentrancyGuard,Ownable {
       if(amount < LEMB.getAmount(order.lembId)){
 
         //pay feeReciever
-        feeRecieverLembId = LEMB.getNewId();
+        uint256 feeRecieverLembId = LEMB.getNewId();
         LEMB.splitLEMB(order.lembId, fee_taker);
-        LEMB.transferFrom(this,feeReciever,feeRecieverLembId);
+        LEMB.transferFrom(address(this),feeReciever,feeRecieverLembId);
 
         //pay fee Taker
         uint256 takerLembId = LEMB.getNewId();
         LEMB.splitLEMB(order.lembId, amount - fee_taker);
-        LEMB.transferFrom(this,taker,takerLembId);
+        LEMB.transferFrom(address(this),taker,takerLembId);
 
-        emit OrderFilled(id, order.maker, taker, order.amount, amount, order.price, order.duration, takerLembId, now);
+        emit OrderFilled(id, order.maker, taker, order.amount, amount, order.price, order.duration, takerLembId, block.timestamp);
       }
       else if(amount == LEMB.getAmount(lembId)){
 
         //split the LEMB for the fee Reciever
-        feeRecieverLembId = LEMB.getNewId();
+        uint256 feeRecieverLembId = LEMB.getNewId();
         LEMB.splitLEMB(order.lembId, fee_taker);
-        LEMB.transferFrom(this,feeReciever,feeRecieverLembId);
+        LEMB.transferFrom(address(this),feeReciever,feeRecieverLembId);
 
-        LEMB.transferFrom(this,taker,order.lembId);
-        emit OrderFilled(id, order.maker, taker, order.amount, amount, order.price, order.duration, order.lembId, now);
+        LEMB.transferFrom(address(this),taker,order.lembId);
+        emit OrderFilled(id, order.maker, taker, order.amount, amount, order.price, order.duration, order.lembId, block.timestamp);
       }
     }
 
@@ -265,16 +265,16 @@ contract ExistingLeaseExchange is ReentrancyGuard,Ownable {
     uint256 orderIndex = allOrdersIndex[id];
     uint256 lastOrderIndex = allOrders.length.sub(1);
     uint256 lastOrder = allOrders[lastOrderIndex];
+
     allOrders[orderIndex] = lastOrder;
-    allOrders[lastOrderIndex] = 0;
-    allOrdersIndex[id] = 0;
+    delete allOrdersIndex[id];
     allOrdersIndex[lastOrder] = orderIndex;
-    allOrders.length--;
+    allOrders.pop();
 
     //pay back on cancellation
     if(orders[id].amount !=0) {
       if(orders[id].demand == false){
-        LEMB.transferFrom(this, orders[id].maker, orders[id].lembId);
+        LEMB.transferFrom(address(this), orders[id].maker, orders[id].lembId);
       }
       else {
         orders[id].maker.transfer(orders[id].amount.mul(orders[id].price).div(EMBPrecision));
@@ -289,11 +289,11 @@ contract ExistingLeaseExchange is ReentrancyGuard,Ownable {
     return (true);
   }
 
-  function retrieveMyOrders() public view returns(uint256[]) {
+  function retrieveMyOrders() public view returns(uint256[] memory) {
     return ownedOrders[msg.sender];
   }
 
-  function retrieveOrders() public view returns(uint256[]) {
+  function retrieveOrders() public view returns(uint256[] memory) {
     return allOrders;
   }
 
@@ -329,10 +329,8 @@ contract ExistingLeaseExchange is ReentrancyGuard,Ownable {
     uint256 lastOrderId = ownedOrders[_from][lastOrderIndex];
 
     ownedOrders[_from][orderIndex] = lastOrderId;
-    ownedOrders[_from][lastOrderIndex] = 0;
-    ownedOrders[_from].length--;
-
-    ownedOrdersIndex[_from][_orderId] = 0;
+    ownedOrders[_from].pop();
+    delete ownedOrdersIndex[_from][_orderId];
     ownedOrdersIndex[_from][lastOrderId] = orderIndex;
   }
 
@@ -350,16 +348,18 @@ contract ExistingLeaseExchange is ReentrancyGuard,Ownable {
 
     require(order.id == id && id != 0);
 
+    bool success = false;
+
     if(order.demand){
       uint256 fee_maker = amount.mul(getFee(order.maker, order.makerVanity, true)).div(feeDenomination);
       uint256 fee_taker = amount.mul(order.price).div(EMBPrecision).mul(getFee(msg.sender, vanity, false)).div(feeDenomination);
+      success = _takeOrder(msg.sender,id,amount,lembId,fee_taker,fee_maker);
     }
     else {
-      fee_maker = amount.mul(order.price).div(EMBPrecision).mul(getFee(order.maker, order.makerVanity, true)).div(feeDenomination);
-      fee_taker = amount.mul(getFee(msg.sender, vanity, false)).div(feeDenomination);
+      uint256 fee_maker = amount.mul(order.price).div(EMBPrecision).mul(getFee(order.maker, order.makerVanity, true)).div(feeDenomination);
+      uint256 fee_taker = amount.mul(getFee(msg.sender, vanity, false)).div(feeDenomination);
+      success = _takeOrder(msg.sender,id,amount,lembId,fee_taker,fee_maker);
     }
-
-    bool success = _takeOrder(msg.sender,id,amount,lembId,fee_taker,fee_maker);
 
     //send back excess ETH
     if (weiSend > 0) msg.sender.transfer(weiSend);

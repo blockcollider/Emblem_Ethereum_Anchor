@@ -1,10 +1,11 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.7.6;
 
-import "openzeppelin-solidity/contracts/token/ERC721/ERC721Token.sol";
-import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
 
-contract LeasedEmblem is  ERC721Token, Ownable {
-
+contract LeasedEmblem is ERC721, Ownable {
+  using SafeMath for uint256;
 
   address internal leaseExchange;
 
@@ -17,7 +18,6 @@ contract LeasedEmblem is  ERC721Token, Ownable {
     uint256 leaseExpiry;
     bool isMining;
   }
-
 
   mapping(uint256 => Metadata) public metadata;
 
@@ -35,11 +35,10 @@ contract LeasedEmblem is  ERC721Token, Ownable {
 
   uint256 highestId = 1;
 
-  uint256 sixMonths       = 15768000;
+  uint256 sixMonths = 15768000;
 
-  constructor (string _name, string _symbol) public ERC721Token(_name, _symbol) {
+  constructor (string memory _name, string memory _symbol) public ERC721(_name, _symbol) {
   }
-
 
 
   function getNewId() public view returns(uint256) {
@@ -82,8 +81,8 @@ contract LeasedEmblem is  ERC721Token, Ownable {
 
     leasedTokens[_from][tokenIndex] = lastToken;
     leasedTokens[_from][lastTokenIndex] = 0;
-    leasedTokens[_from].length--;
-    leasedTokensIndex[_tokenId] = 0;
+    leasedTokens[_from].pop();
+    delete leasedTokensIndex[_tokenId];
     leasedTokensIndex[lastToken] = tokenIndex;
   }
 
@@ -93,19 +92,19 @@ contract LeasedEmblem is  ERC721Token, Ownable {
 
   function totalAmount() external view returns (uint256) {
     uint256 amount = 0;
-    for(uint256 i = 0; i < allTokens.length; i++){
-      amount += metadata[allTokens[i]].amount;
+    for(uint256 i = 0; i < totalSupply(); i++){
+      amount += metadata[tokenByIndex(i)].amount;
     }
     return amount;
   }
 
   function setMetadata(uint256 _tokenId, uint256 amount, address leasor, uint256 duration,uint256 tradeExpiry, uint256 leaseExpiry) internal {
-    require(exists(_tokenId));
+    require(_exists(_tokenId));
     metadata[_tokenId]= Metadata(amount,leasor,duration,tradeExpiry,leaseExpiry,false);
   }
 
   function getMetadata(uint256 _tokenId) public view returns (uint256, address, uint256, uint256,uint256, bool) {
-    require(exists(_tokenId));
+    require(_exists(_tokenId));
     return (
       metadata[_tokenId].amount,
       metadata[_tokenId].leasor,
@@ -139,62 +138,62 @@ contract LeasedEmblem is  ERC721Token, Ownable {
   }
 
   function getAmount(uint256 _tokenId) public view returns (uint256) {
-    require(exists(_tokenId));
+    require(_exists(_tokenId));
     return metadata[_tokenId].amount;
   }
 
   function getTradeExpiry(uint256 _tokenId) public view returns (uint256) {
-    require(exists(_tokenId));
+    require(_exists(_tokenId));
     return metadata[_tokenId].tradeExpiry;
   }
 
   function getDuration(uint256 _tokenId) public view returns (uint256) {
-    require(exists(_tokenId));
+    require(_exists(_tokenId));
     return metadata[_tokenId].duration;
   }
 
   function getIsMining(uint256 _tokenId) public view returns (bool) {
-    require(exists(_tokenId));
+    require(_exists(_tokenId));
     return metadata[_tokenId].isMining;
   }
 
   function startMining(address _owner, uint256 _tokenId) public returns (bool) {
     require(msg.sender == leaseExchange);
-    require(exists(_tokenId));
+    require(_exists(_tokenId));
     require(ownerOf(_tokenId) == _owner);
-    require(now < metadata[_tokenId].tradeExpiry);
+    require(block.timestamp < metadata[_tokenId].tradeExpiry);
     require(metadata[_tokenId].isMining == false);
     Metadata storage m = metadata[_tokenId];
     m.isMining = true;
-    m.leaseExpiry = now + m.duration;
+    m.leaseExpiry = block.timestamp + m.duration;
     return true;
   }
 
   function canRetrieveEMB(address _leasor, uint256 _tokenId) public view returns (bool) {
-    require(exists(_tokenId));
+    require(_exists(_tokenId));
     require(metadata[_tokenId].leasor == _leasor);
     if(metadata[_tokenId].isMining == false) {
-      return(now > metadata[_tokenId].leaseExpiry);
+      return(block.timestamp > metadata[_tokenId].leaseExpiry);
     }
     else {
-      return(now > metadata[_tokenId].tradeExpiry);
+      return(block.timestamp > metadata[_tokenId].tradeExpiry);
     }
   }
 
   function endLease(address _leasee, uint256 _tokenId) public {
     require(msg.sender == leaseExchange);
-    require(exists(_tokenId));
+    require(_exists(_tokenId));
     require(ownerOf(_tokenId) == _leasee);
-    require(now > metadata[_tokenId].leaseExpiry);
+    require(block.timestamp > metadata[_tokenId].leaseExpiry);
     removeTokenFromLeasor(metadata[_tokenId].leasor, _tokenId);
-    _burn(_leasee, _tokenId);
+    _burn(_tokenId);
   }
 
   function splitLEMB(uint256 _tokenId, uint256 amount) public {
-    require(exists(_tokenId));
+    require(_exists(_tokenId));
     require(ownerOf(_tokenId) == msg.sender);
     require(metadata[_tokenId].isMining == false);
-    require(now < metadata[_tokenId].tradeExpiry);
+    require(block.timestamp < metadata[_tokenId].tradeExpiry);
     require(amount < getAmount(_tokenId));
 
     uint256 _newTokenId = getNewId();
@@ -213,18 +212,18 @@ contract LeasedEmblem is  ERC721Token, Ownable {
     uint256 _tokenId = getNewId();
     _mint(_to, _tokenId);
     addTokenToLeasor(leasor, _tokenId);
-    uint256 tradeExpiry = now + sixMonths;
+    uint256 tradeExpiry = block.timestamp + sixMonths;
     setMetadata(_tokenId, amount, leasor, duration,tradeExpiry, 0);
     highestId = highestId + 1;
   }
 
-  function _burn(address _owner, uint256 _tokenId) internal {
-    super._burn(_owner, _tokenId);
+  function _burn(uint256 _tokenId) override internal {
+    super._burn(_tokenId);
     delete metadata[_tokenId];
   }
 
   modifier canTransfer(uint256 _tokenId) {
-    require(isApprovedOrOwner(msg.sender, _tokenId));
+    require(_isApprovedOrOwner(msg.sender, _tokenId));
     require(metadata[_tokenId].isMining == false);
     _;
   }

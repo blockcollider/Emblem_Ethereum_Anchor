@@ -12,15 +12,15 @@
   "author": "",
   "license": "",
   "dependencies": {
+    "@openzeppelin/contracts": "^3.3.0",
     "bignumber.js": "^6.0.0",
     "chai": "^4.1.2",
     "chai-as-promised": "^7.1.1",
     "chai-bignumber": "^2.0.2",
-    "openzeppelin-solidity": "^1.11.0",
     "promise-sequential": "^1.1.1",
+    "solc": "^0.8.1",
     "truffle-hdwallet-provider": "0.0.3",
-    "truffle-hdwallet-provider-privkey": "^0.3.0",
-    "zeppelin-solidity": "^1.11.0"
+    "truffle-hdwallet-provider-privkey": "^0.3.0"
   },
   "devDependencies": {
     "babel-polyfill": "^6.26.0",

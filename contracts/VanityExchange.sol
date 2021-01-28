@@ -1,8 +1,8 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.7.6;
 
-import "openzeppelin-solidity/contracts/math/SafeMath.sol";
-import "openzeppelin-solidity/contracts/ReentrancyGuard.sol";
-import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Emblem.sol";
 
 contract VanityExchange is ReentrancyGuard, Ownable {
@@ -10,7 +10,7 @@ contract VanityExchange is ReentrancyGuard, Ownable {
 
   struct Order {
     uint256 id;
-    address maker;
+    address payable maker;
     bytes12 makerVanity;
     uint256 price;
     bytes12 vanity;
@@ -43,7 +43,7 @@ contract VanityExchange is ReentrancyGuard, Ownable {
   uint256 makerFee = 1;
   uint256 takerFee = 1;
   uint256 feeDenomination = 1000;
-  address feeReciever;
+  address payable feeReciever;
 
 
   // makes sure weiSend of current tx is reset
@@ -60,7 +60,7 @@ contract VanityExchange is ReentrancyGuard, Ownable {
 
   event OrderCancelled(uint256 id, address maker, uint256 price, bytes12 vanity, bool demand);
 
-  constructor(address _emb,address _feeReciever) public {
+  constructor(address _emb,address payable _feeReciever) public {
     EMB = Emblem(_emb);
     feeReciever = _feeReciever;
   }
@@ -88,7 +88,7 @@ contract VanityExchange is ReentrancyGuard, Ownable {
     return highestId;
   }
 
-  function _placeOrder(address maker, uint256 price, bytes12 vanity, bool demand, bytes12 makerVanity) internal returns (bool){
+  function _placeOrder(address payable maker, uint256 price, bytes12 vanity, bool demand, bytes12 makerVanity) internal returns (bool){
 
     // validate input
     if (price <= 0) return (false);
@@ -102,23 +102,23 @@ contract VanityExchange is ReentrancyGuard, Ownable {
 
     uint256 id = getNewId();
 
-    orders[id] = Order(id, maker,makerVanity, price,vanity, demand, now);
+    orders[id] = Order(id, maker,makerVanity, price,vanity, demand, block.timestamp);
     allOrders.push(id);
     allOrdersIndex[id] = allOrders.length.sub(1);
 
     if(demand) weiSend = weiSend.sub(price);
-    else EMB.transferVanityFrom(maker, this, vanity);
+    else EMB.transferVanityFrom(maker, address(this), vanity);
 
     _addOrderToUser(maker, id);
 
-    emit OrderPlaced(id, maker, price, vanity, demand, now);
+    emit OrderPlaced(id, maker, price, vanity, demand, block.timestamp);
 
     highestId = highestId + 1;
 
     return (true);
   }
 
-  function _takeOrder(address taker, uint256 id, bytes12 vanity) internal returns (bool) {
+  function _takeOrder(address payable taker, uint256 id, bytes12 vanity) internal returns (bool) {
 
     if (id <= 0) return (false);
     Order storage order = orders[id];
@@ -152,17 +152,17 @@ contract VanityExchange is ReentrancyGuard, Ownable {
       order.maker.transfer(order.price - fee_maker);
     }
     //
-    emit OrderFilled(id, order.maker, taker, order.price,order.vanity, order.demand, now);
+    emit OrderFilled(id, order.maker, taker, order.price,order.vanity, order.demand, block.timestamp);
 
     // _deleteOrder(id);
     uint256 orderIndex = allOrdersIndex[id];
     uint256 lastOrderIndex = allOrders.length.sub(1);
     uint256 lastOrder = allOrders[lastOrderIndex];
+
     allOrders[orderIndex] = lastOrder;
-    allOrders[lastOrderIndex] = 0;
-    allOrdersIndex[id] = 0;
+    delete allOrdersIndex[id];
     allOrdersIndex[lastOrder] = orderIndex;
-    allOrders.length--;
+    allOrders.pop();
 
     _removeOrderFromUser(orders[id].maker, id);
 
@@ -183,10 +183,9 @@ contract VanityExchange is ReentrancyGuard, Ownable {
     uint256 lastOrderIndex = allOrders.length.sub(1);
     uint256 lastOrder = allOrders[lastOrderIndex];
     allOrders[orderIndex] = lastOrder;
-    allOrders[lastOrderIndex] = 0;
-    allOrdersIndex[id] = 0;
+    delete allOrdersIndex[id];
     allOrdersIndex[lastOrder] = orderIndex;
-    allOrders.length--;
+    allOrders.pop();
 
     //pay back on cancellation
     if(orders[id].demand == false){
@@ -203,11 +202,11 @@ contract VanityExchange is ReentrancyGuard, Ownable {
     return (true);
   }
 
-  function retrieveMyOrders() public view returns(uint256[]) {
+  function retrieveMyOrders() public view returns(uint256[] memory) {
     return ownedOrders[msg.sender];
   }
 
-  function retrieveOrders() public view returns(uint256[]) {
+  function retrieveOrders() public view returns(uint256[] memory) {
     return allOrders;
   }
 
@@ -228,10 +227,8 @@ contract VanityExchange is ReentrancyGuard, Ownable {
     uint256 lastOrderId = ownedOrders[_from][lastOrderIndex];
 
     ownedOrders[_from][orderIndex] = lastOrderId;
-    ownedOrders[_from][lastOrderIndex] = 0;
-    ownedOrders[_from].length--;
-
-    ownedOrdersIndex[_from][_orderId] = 0;
+    ownedOrders[_from].pop();
+    delete ownedOrdersIndex[_from][_orderId];
     ownedOrdersIndex[_from][lastOrderId] = orderIndex;
   }
 
