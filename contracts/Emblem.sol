@@ -181,6 +181,9 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
      frozenAccounts[_target] = _freeze;
    }
 
+   //ensure the account is not frozen
+   //ensure their is no complete freeze
+   //ensure the amount being transferred does not dip into EMB owned through leases.
    function canTransfer(address _account,uint256 _value) internal view returns (bool) {
       return (!frozenAccounts[_account] && !completeFreeze && (_value.add(LEMB.getAmountForUserMining(_account)) <= balanceOf(_account)));
    }
@@ -193,8 +196,8 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
 
    function multiTransfer(bytes27[] memory _addressesAndAmounts) external returns (bool){
       for (uint i = 0; i < _addressesAndAmounts.length; i++) {
-          address to = address(uint256(_addressesAndAmounts[i] >> 56));
-          uint amount = uint(_addressesAndAmounts[i] << 160);
+          address to = address(uint216(_addressesAndAmounts[i] >> 56));
+          uint216 amount = uint216(_addressesAndAmounts[i] << 160);
           transfer(to, amount);
       }
       return true;
