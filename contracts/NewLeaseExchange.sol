@@ -1,4 +1,4 @@
-pragma solidity ^0.7.6;
+pragma solidity 0.7.6;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -378,13 +378,12 @@ contract NewLeaseExchange is ReentrancyGuard, Ownable {
   //Retrieve EMB once mining is finished
   function retrieveEMB(uint256 id) public returns (bool) {
     require(LEMB.canRetrieveEMB(msg.sender,id));
-    emit MiningStarted(5000);
 
     uint256 amount = LEMB.getAmount(id);
 
     // LEMB has been mining, then transfer EMB from the owner
     if(LEMB.getIsMining(id)){
-      EMB.transferFrom(LEMB.ownerOf(id), msg.sender, amount);
+      EMB.releaseEMB(LEMB.ownerOf(id), msg.sender, amount);
     }
     //else transfer from the contract itself
     else {

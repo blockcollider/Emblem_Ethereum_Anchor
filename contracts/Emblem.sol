@@ -1,4 +1,4 @@
-pragma solidity ^0.7.6;
+pragma solidity 0.7.6;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20Capped.sol";
@@ -12,28 +12,25 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
    mapping (bytes12 => address) public vanityAddresses;
    mapping (address => bytes12[]) public ownedVanities;
    mapping (address => mapping(bytes12 => uint256)) public ownedVanitiesIndex;
-   mapping (bytes12 => uint256) allVanitiesIndex;
-   bytes12[] public allVanities;
+   mapping (bytes12 => uint256) internal allVanitiesIndex;
+   bytes12[] internal allVanities;
    mapping (address => mapping (bytes12 => address)) internal allowedVanities;
 
-   mapping (bytes12 => uint256) vanityFees;
-   mapping (bytes12 => bool) vanityFeeEnabled;
+   mapping (bytes12 => uint256) internal vanityFees;
 
-   bool internal useVanityFees = true;
-   uint256 internal vanityPurchaseCost = 100 * (10 ** 8);
+   bool internal useVanityFees;
+   uint256 internal vanityPurchaseCost = 1 * (10 ** 8); //1 EMB
 
    mapping (address => bool) public frozenAccounts;
-   bool public completeFreeze = false;
+   bool public completeFreeze;
 
-   mapping (address => bool) internal freezable;
-   mapping (address => bool) internal externalFreezers;
+   address internal leaseExchange;
+   LeasedEmblem internal LEMB;
 
-   address leaseExchange;
-   LeasedEmblem LEMB;
-
-   event TransferVanity(address from, address to, bytes12 vanity);
-   event ApprovedVanity(address from, address to, bytes12 vanity);
-   event VanityPurchased(address from, bytes12 vanity);
+   event TransferVanity(address indexed from, address indexed to, bytes12 vanity);
+   event ApprovedVanity(address indexed from, address indexed to, bytes12 vanity);
+   event VanityPurchaseCost(uint256 cost);
+   event VanityPurchased(address indexed from, bytes12 vanity);
 
    constructor(string memory _name, string memory _ticker, uint8 _decimal, uint256 _supply, address _wallet, address _lemb) public ERC20(_name, _ticker) ERC20Capped(_supply) {
      _mint(_wallet,_supply);
@@ -42,11 +39,14 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
    }
 
    function setLeaseExchange(address _leaseExchange) public onlyOwner {
+     require(_leaseExchange != address(0), "Lease Exchange address cannot be set to 0");
      leaseExchange = _leaseExchange;
    }
 
    function setVanityPurchaseCost(uint256 cost) public onlyOwner {
+     require(cost > 0, "Vanity Purchase Cost must be > 0");
      vanityPurchaseCost = cost;
+     emit VanityPurchaseCost(cost);
    }
 
    function enableFees(bool enabled) public onlyOwner {
@@ -54,11 +54,11 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
    }
 
    function setLEMB(address _lemb) public onlyOwner {
+     require(_lemb != address(0), "Leased Emblem address cannot be 0");
      LEMB = LeasedEmblem(_lemb);
    }
 
    function setVanityFee(bytes12 vanity, uint256 fee) public onlyOwner {
-     require(fee >= 0);
      vanityFees[vanity] = fee;
    }
 
@@ -67,7 +67,7 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
    }
 
    function enabledVanityFee(bytes12 vanity) public view returns(bool) {
-     return vanityFeeEnabled[vanity] && useVanityFees;
+     return useVanityFees;
    }
 
    function vanityAllowance(address _owner, bytes12 _vanity, address _spender) public view returns (bool) {
@@ -87,7 +87,8 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
    }
 
    function approveVanity(address _spender, bytes12 _vanity) public returns (bool) {
-     require(vanityAddresses[_vanity] == msg.sender);
+     require(_spender != address(0), 'spender of vanity cannot be address zero');
+     require(vanityAddresses[_vanity] == msg.sender, 'transaction initiator must own the vanity');
      allowedVanities[msg.sender][_vanity] = _spender;
 
      emit ApprovedVanity(msg.sender, _spender, _vanity);
@@ -95,14 +96,14 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
    }
 
    function clearVanityApproval(bytes12 _vanity) public returns (bool){
-     require(vanityAddresses[_vanity] == msg.sender);
+     require(vanityAddresses[_vanity] == msg.sender,'transaction initiator must own the vanity');
      delete allowedVanities[msg.sender][_vanity];
      return true;
    }
 
    function transferVanity(bytes12 van, address newOwner) public returns (bool) {
-     require(newOwner != address(0));
-     require(vanityAddresses[van] == msg.sender);
+     require(newOwner != address(0),'new vanity owner cannot be of address zero');
+     require(vanityAddresses[van] == msg.sender,'transaction initiator must own the vanity');
 
      vanityAddresses[van] = newOwner;
      ownedVanities[newOwner].push(van);
@@ -113,7 +114,6 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
      bytes12 lastVanity = ownedVanities[msg.sender][lastVanityIndex];
 
      ownedVanities[msg.sender][vanityIndex] = lastVanity;
-     ownedVanities[msg.sender][lastVanityIndex] = "";
      ownedVanities[msg.sender].pop();
 
      delete ownedVanitiesIndex[msg.sender][van];
@@ -132,9 +132,9 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
      public
      returns (bool)
    {
-     require(_to != address(0));
-     require(_from == vanityAddresses[_vanity]);
-     require(msg.sender == allowedVanities[_from][_vanity]);
+     require(_to != address(0),'new vanity owner cannot be of address zero');
+     require(_from == vanityAddresses[_vanity],'the vanity being transferred must be owned by address _from');
+     require(msg.sender == allowedVanities[_from][_vanity],'transaction initiator must be approved to transfer vanity');
 
      vanityAddresses[_vanity] = _to;
      ownedVanities[_to].push(_vanity);
@@ -145,25 +145,24 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
      bytes12 lastVanity = ownedVanities[_from][lastVanityIndex];
 
      ownedVanities[_from][vanityIndex] = lastVanity;
-     ownedVanities[_from][lastVanityIndex] = "";
      ownedVanities[_from].pop();
 
      delete ownedVanitiesIndex[_from][_vanity];
      ownedVanitiesIndex[_from][lastVanity] = vanityIndex;
 
-     emit TransferVanity(msg.sender, _to,_vanity);
+     emit TransferVanity(_from, _to,_vanity);
 
      return true;
    }
 
    function purchaseVanity(bytes12 van) public returns (bool) {
-     require(vanityAddresses[van] == address(0));
+     require(vanityAddresses[van] == address(0),'vanity must not be purchased so far');
 
      for(uint8 i = 0; i < 12; i++){
+       //Vanities must be lower case
        require((uint8(van[i]) >= 48 && uint8(van[i]) <= 57) || (uint8(van[i]) >= 65 && uint8(van[i]) <= 90));
      }
-
-     transferFrom(msg.sender, address(this), vanityPurchaseCost);
+     if(vanityPurchaseCost > 0) transferFrom(msg.sender, address(this), vanityPurchaseCost);
 
      vanityAddresses[van] = msg.sender;
      ownedVanities[msg.sender].push(van);
@@ -172,6 +171,7 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
      allVanitiesIndex[van] = allVanities.length.sub(1);
 
      emit VanityPurchased(msg.sender, van);
+     return true;
    }
 
    function freezeTransfers(bool _freeze) public onlyOwner {
@@ -183,65 +183,55 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
    }
 
    function canTransfer(address _account,uint256 _value) internal view returns (bool) {
-      return (!frozenAccounts[_account] && !completeFreeze && (_value + LEMB.getAmountForUserMining(_account) <= balanceOf(_account)));
+      return (!frozenAccounts[_account] && !completeFreeze && (_value.add(LEMB.getAmountForUserMining(_account)) <= balanceOf(_account)));
    }
 
    function transfer(address _to, uint256 _value) public override returns (bool){
-      require(canTransfer(msg.sender,_value));
+      require(canTransfer(msg.sender,_value),'value must be transferrable by transaction initiator');
       super.transfer(_to,_value);
+      return true;
    }
 
-   function multiTransfer(bytes32[] memory _addressesAndAmounts) public {
+   function multiTransfer(bytes32[] memory _addressesAndAmounts) external returns (bool){
       for (uint i = 0; i < _addressesAndAmounts.length; i++) {
           address to = address(uint256(_addressesAndAmounts[i] >> 96));
-          uint amount = uint(uint(_addressesAndAmounts[i] << 160));
+          uint amount = uint(_addressesAndAmounts[i] << 160);
           transfer(to, amount);
       }
-   }
-
-   function freezeMe(bool freeze) public {
-     require(!frozenAccounts[msg.sender]);
-     freezable[msg.sender] = freeze;
-   }
-
-   function canFreeze(address _target) public view returns(bool){
-     return freezable[_target];
+      return true;
    }
 
    function isFrozen(address _target) public view returns(bool) {
      return completeFreeze || frozenAccounts[_target];
    }
 
-   function externalFreezeAccount(address _target, bool _freeze) public {
-     require(freezable[_target]);
-     require(externalFreezers[msg.sender]);
-     frozenAccounts[_target] = _freeze;
+   function releaseEMB(address _from, address _to, uint256 _value) external returns (bool){
+     require(!completeFreeze,'ensure freeze is deactivated');
+     require(msg.sender == leaseExchange, 'only the lease exchange can call this function');
+     super.transferFrom(_from,_to,_value);
+     return true;
    }
-
-   function setExternalFreezer(address _target, bool _canFreeze) public onlyOwner {
-     externalFreezers[_target] = _canFreeze;
-   }
-
 
    function transferFrom(address _from, address _to, uint256 _value) public override returns (bool){
-      require(!completeFreeze);
-      if(msg.sender != leaseExchange) require(canTransfer(_from,_value));
+      require(canTransfer(_from,_value),'value must be transfered from address _from');
       super.transferFrom(_from,_to,_value);
+      return true;
    }
 
    function decreaseAllowance(address _spender,uint256 _subtractedValue) public override returns (bool) {
      if(_spender == leaseExchange) {
-       require(allowance(msg.sender,_spender).sub(_subtractedValue) >= LEMB.getAmountForUserMining(msg.sender));
+       require(allowance(msg.sender,_spender).sub(_subtractedValue) >= LEMB.getAmountForUserMining(msg.sender),'if spender is the lease exchange, the allowance must be greater than the amount the user is mining with LEMB');
      }
      super.decreaseAllowance(_spender,_subtractedValue);
+     return true;
    }
 
    function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual override(ERC20, ERC20Capped) {
-        super._beforeTokenTransfer(from, to, amount);
+      super._beforeTokenTransfer(from, to, amount);
 
-        if (from == address(0)) { // When minting tokens
-            require(totalSupply().add(amount) <= cap(), "ERC20Capped: cap exceeded");
-        }
+      if (from == address(0)) { // When minting tokens
+          require(totalSupply().add(amount) <= cap(), "ERC20Capped: cap exceeded");
+      }
     }
 
    function approve(address _spender, uint256 _value) public override returns (bool) {

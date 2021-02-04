@@ -1,4 +1,4 @@
-pragma solidity ^0.7.6;
+pragma solidity 0.7.6;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -131,7 +131,7 @@ contract VanityExchange is ReentrancyGuard, Ownable {
 
       EMB.transferVanityFrom(taker,order.maker,order.vanity);
 
-      uint256 fee_taker = order.price.mul(getFee(taker, vanity, true));
+      uint256 fee_taker = order.price.mul(getFee(taker, vanity, false));
 
       feeReciever.transfer(fee_taker);
 
