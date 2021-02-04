@@ -2320,7 +2320,7 @@
   },
   "networks": {},
   "schemaVersion": "3.3.3",
-  "updatedAt": "2021-02-04T00:19:14.567Z",
+  "updatedAt": "2021-02-04T01:44:13.671Z",
   "devdoc": {
     "details": "Extension of {ERC20} that adds a cap to the supply of tokens.",
     "kind": "dev",
