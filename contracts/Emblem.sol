@@ -11,23 +11,20 @@ import "./LeasedEmblem.sol";
 contract Emblem is ERC20, ERC20Capped, Ownable {
   using SafeMath for uint256;
 
+   bool public completeFreeze;
+   bool internal useVanityFees;
+   address internal leaseExchange;
+   uint256 internal vanityPurchaseCost = 1 * (10 ** 8); //1 EMB
+   bytes12[] internal allVanities;
+   LeasedEmblem internal LEMB;
+
    mapping (bytes12 => address) public vanityAddresses;
    mapping (address => bytes12[]) public ownedVanities;
    mapping (address => mapping(bytes12 => uint256)) public ownedVanitiesIndex;
    mapping (bytes12 => uint256) internal allVanitiesIndex;
-   bytes12[] internal allVanities;
    mapping (address => mapping (bytes12 => address)) internal allowedVanities;
-
    mapping (bytes12 => uint256) internal vanityFees;
-
-   bool internal useVanityFees;
-   uint256 internal vanityPurchaseCost = 1 * (10 ** 8); //1 EMB
-
    mapping (address => bool) public frozenAccounts;
-   bool public completeFreeze;
-
-   address internal leaseExchange;
-   LeasedEmblem internal LEMB;
 
    event TransferVanity(address indexed from, address indexed to, bytes12 vanity);
    event ApprovedVanity(address indexed from, address indexed to, bytes12 vanity);
