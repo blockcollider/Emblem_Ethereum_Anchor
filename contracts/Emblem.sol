@@ -31,10 +31,9 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
    event VanityPurchaseCost(uint256 cost);
    event VanityPurchased(address indexed from, bytes12 vanity);
 
-   constructor(string memory _name, string memory _ticker, uint8 _decimal, uint256 _supply, address _wallet, address _lemb) public ERC20(_name, _ticker) ERC20Capped(_supply) {
+   constructor(string memory _name, string memory _ticker, uint8 _decimal, uint256 _supply, address _wallet) public ERC20(_name, _ticker) ERC20Capped(_supply) {
      _mint(_wallet,_supply);
      _setupDecimals(_decimal);
-     LEMB = LeasedEmblem(_lemb);
    }
 
    function setLeaseExchange(address _leaseExchange) public onlyOwner {
@@ -53,7 +52,7 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
    }
 
    function setLEMB(address _lemb) public onlyOwner {
-     require(_lemb != address(0), "Leased Emblem address cannot be 0");
+     require(_lemb != address(0), "Leased Emblem address cannot be set to 0");
      LEMB = LeasedEmblem(_lemb);
    }
 
