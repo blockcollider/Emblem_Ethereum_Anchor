@@ -193,7 +193,7 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
       return true;
    }
 
-   function multiTransfer(bytes27[] memory _addressesAndAmounts) external returns (bool){
+   function multiTransfer(bytes27[] calldata _addressesAndAmounts) external returns (bool){
       for (uint i = 0; i < _addressesAndAmounts.length; i++) {
           address to = address(uint216(_addressesAndAmounts[i] >> 56));
           uint216 amount = uint216(_addressesAndAmounts[i] << 160);
