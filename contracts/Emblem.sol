@@ -64,7 +64,7 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
      return vanityFees[vanity];
    }
 
-   function enabledVanityFee(bytes12 vanity) public view returns(bool) {
+   function enabledVanityFee() public view returns(bool) {
      return useVanityFees;
    }
 
