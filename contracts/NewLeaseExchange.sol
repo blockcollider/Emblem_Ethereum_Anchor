@@ -88,7 +88,7 @@ contract NewLeaseExchange is ReentrancyGuard, Ownable {
   }
 
   function getFee(address owner, bytes12 vanity, bool isMaker) public view returns (uint256){
-    if(EMB.getVanityOwner(vanity) == owner && EMB.enabledVanityFee(vanity)) return EMB.getFee(vanity);
+    if(EMB.getVanityOwner(vanity) == owner && EMB.enabledVanityFee()) return EMB.getFee(vanity);
     else {
       if(isMaker) return makerFee;
       else return takerFee;
@@ -317,7 +317,7 @@ contract NewLeaseExchange is ReentrancyGuard, Ownable {
   }
 
   //take a few orders and place Order if order to place
-  function takeOrders(uint256[] memory ids, uint256[] memory amounts, uint256 price, uint256 amount, bool demand, uint256 duration, bytes12 vanity) external payable weiSendGuard nonReentrant returns (bool) {
+  function takeOrders(uint256[] calldata ids, uint256[] calldata amounts, uint256 price, uint256 amount, bool demand, uint256 duration, bytes12 vanity) external payable weiSendGuard nonReentrant returns (bool) {
     require(ids.length == amounts.length);
 
     bool allSuccess = true;

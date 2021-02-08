@@ -79,7 +79,7 @@ contract VanityExchange is ReentrancyGuard, Ownable {
   }
 
   function getFee(address owner, bytes12 vanity, bool isMaker) public view returns (uint256){
-    if(EMB.getVanityOwner(vanity) == owner && EMB.enabledVanityFee(vanity)) return EMB.getFee(vanity);
+    if(EMB.getVanityOwner(vanity) == owner && EMB.enabledVanityFee()) return EMB.getFee(vanity);
     else {
       if(isMaker) return makerFee;
       else return takerFee;

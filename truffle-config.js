@@ -42,16 +42,16 @@ module.exports = {
   compilers:{
     solc: {
       version:'0.7.6',
-      optimizer: {
-        enabled: true,
-        runs: 200
-      }
+      // optimizer: {
+      //   enabled: true,
+      //   runs: 200
+      // }
     },
   },
-  "config": {
-          "chainId": 42,
-          "homesteadBlock": 0,
-          "eip155Block": 0,
-          "eip158Block": 0
-      }
+  // "config": {
+  //         "chainId": 42,
+  //         "homesteadBlock": 0,
+  //         "eip155Block": 0,
+  //         "eip158Block": 0
+  //     }
 };

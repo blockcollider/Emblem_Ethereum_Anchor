@@ -1,7 +1,7 @@
 var {increaseTimeTo, duration} = require('./helpers/increaseTime');
 var latestTime = require('./helpers/latestTime')
 var {EVMRevert} = require('./helpers/EVMRevert')
-const BigNumber = web3.BigNumber;
+const BigNumber = require('bignumber.js');
 var Emblem = artifacts.require("Emblem");
 var LEMB = artifacts.require("LeasedEmblem");
 var constants = require('../constants.js')(web3);
@@ -29,8 +29,8 @@ contract('Emblem', async function(accounts) {
 
     // this.token = await Emblem.new(e._name,e._ticker,e._decimal,e._supply,e._wallet);
 
-	  this.lemb = await LEMB.new("LEMB","LEMB");
-	  this.token = await Emblem.new(e._name,e._ticker,e._decimal,e._supply,e._wallet,this.lemb.address);
+	  // this.lemb = await LEMB.new("LEMB","LEMB");
+	  this.token = await Emblem.new(e._name,e._ticker,e._decimal,e._supply,e._wallet);
 
     await increaseTimeTo(latestTime() + duration.days(1));
   });
