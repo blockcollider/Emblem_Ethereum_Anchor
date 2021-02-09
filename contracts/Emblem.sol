@@ -226,7 +226,9 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
 
    function decreaseAllowance(address _spender,uint256 _subtractedValue) public override returns (bool) {
      if(_spender == leaseExchange) {
-       require(allowance(msg.sender,_spender).sub(_subtractedValue) >= LEMB.getAmountForUserMining(msg.sender),'if spender is the lease exchange, the allowance must be greater than the amount the user is mining with LEMB');
+       if(address(LEMB)!= address(0)){
+         require(allowance(msg.sender,_spender).sub(_subtractedValue) >= LEMB.getAmountForUserMining(msg.sender),'if spender is the lease exchange, the allowance must be greater than the amount the user is mining with LEMB');
+       }
      }
      super.decreaseAllowance(_spender,_subtractedValue);
      return true;
@@ -242,7 +244,9 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
 
    function approve(address _spender, uint256 _value) public override returns (bool) {
      if(_spender == leaseExchange){
-       require(_value >= LEMB.getAmountForUserMining(msg.sender));
+       if(address(LEMB)!= address(0)){
+         require(_value >= LEMB.getAmountForUserMining(msg.sender));
+       }
      }
      _approve(msg.sender, _spender, _value);
      return true;
