@@ -184,7 +184,12 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
    //ensure their is no complete freeze
    //ensure the amount being transferred does not dip into EMB owned through leases.
    function canTransfer(address _account,uint256 _value) internal view returns (bool) {
-      return (!frozenAccounts[_account] && !completeFreeze && (_value.add(LEMB.getAmountForUserMining(_account)) <= balanceOf(_account)));
+      require(!frozenAccounts[_account],'account cannot be frozen');
+      require(!completeFreeze,'transfers cannot be frozen');
+      if(address(LEMB)!= address(0)){
+        require((_value.add(LEMB.getAmountForUserMining(_account)) <= balanceOf(_account)),'value being sent cannot dip into EMB acquired through leasing');
+      }
+      return true;
    }
 
    function transfer(address _to, uint256 _value) public override returns (bool){
