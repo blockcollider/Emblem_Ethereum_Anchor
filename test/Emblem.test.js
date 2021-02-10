@@ -43,21 +43,13 @@ contract('Emblem', async function(accounts) {
     // assert.equal((await this.token.balanceOf(accounts[0])).toString(), (await this.token.totalSupply()).minus(constants.sum).toString());
   });
 
-  it("should be able to set ticker", async function() {
-    await this.token.setTicker("NRG");
-    assert.equal(await this.token.symbol(), 'NRG');
-  });
-
-  it("should not be able to set ticker", async function() {
-    await this.token.setTicker("NRG",{from:accounts[1]}).should.be.rejectedWith(EVMRevert);
-  });
-
   it("should be able to transfer", async function() {
     await this.token.transfer(accounts[1], 2000,{from:accounts[0]});
     assert.equal((await this.token.balanceOf(accounts[1])).toString(), '2000');
     await this.token.transfer(accounts[0], 1000,{from:accounts[1]})
     assert.equal((await this.token.balanceOf(accounts[1])).toString(), '1000');
-    assert.equal((await this.token.balanceOf(accounts[0])).toString(), (await this.token.totalSupply()).minus(1000).toString());
+    let newsupply = (await this.token.totalSupply());
+    assert.equal((await this.token.balanceOf(accounts[0])).toString(), (newsupply - 1000).toString());
   });
 
   it("should not be able to transfer if balance is not enough", async function() {
@@ -96,34 +88,6 @@ contract('Emblem', async function(accounts) {
       return padToBytes32(hex);
   };
 
-  it("should allow an external freezer to freeze an account", async function(){
-    await this.token.transfer(accounts[1], 1000);
-    await this.token.setExternalFreezer(accounts[2],true);
-    await this.token.externalFreezeAccount(accounts[1],true,{from:accounts[2]}).should.be.rejectedWith(EVMRevert);
-    await this.token.transfer(accounts[2], 100,{from:accounts[1]});
-    await this.token.freezeMe(true,{from:accounts[1]});
-    assert.equal((await this.token.canFreeze(accounts[1])), true);
-
-    await this.token.externalFreezeAccount(accounts[1],true,{from:accounts[2]});
-    assert.equal((await this.token.isFrozen(accounts[1])), true);
-    await this.token.transfer(accounts[2], 100,{from:accounts[1]}).should.be.rejectedWith(EVMRevert);
-    await this.token.freezeMe(false,{from:accounts[1]}).should.be.rejectedWith(EVMRevert);
-    await this.token.externalFreezeAccount(accounts[1],false,{from:accounts[2]});
-    await this.token.freezeMe(false,{from:accounts[1]});
-    assert.equal((await this.token.canFreeze(accounts[1])), false);
-    assert.equal((await this.token.isFrozen(accounts[1])), false);
-
-    await this.token.externalFreezeAccount(accounts[1],true,{from:accounts[2]}).should.be.rejectedWith(EVMRevert);
-    await this.token.transfer(accounts[2], 100,{from:accounts[1]});
-
-    await this.token.setExternalFreezer(accounts[2],false);
-    await this.token.freezeMe(true,{from:accounts[1]});
-    await this.token.externalFreezeAccount(accounts[1],true,{from:accounts[2]}).should.be.rejectedWith(EVMRevert);
-
-    assert.equal((await this.token.balanceOf(accounts[1])).toString(), '800');
-    assert.equal((await this.token.balanceOf(accounts[2])).toString(), '200');
-  });
-
   it("should allow owner to freeze transfer an account and then unfreeze and allow for transfers to work again",async function() {
     await this.token.freezeAccount(accounts[1],true);
     await this.token.transfer(accounts[1], 1000)
@@ -135,7 +99,7 @@ contract('Emblem', async function(accounts) {
   });
 
   it("should not allow another user to freeze an account",async function() {
-    await this.token.freezeAccount(accounts[1],{from:accounts[2]}).should.be.rejectedWith(EVMRevert);
+    await this.token.freezeAccount(accounts[1],true,{from:accounts[2]}).should.be.rejectedWith(EVMRevert);
     await this.token.transfer(accounts[1], 1000);
     assert.equal((await this.token.balanceOf(accounts[1])).toString(), '1000');
   });

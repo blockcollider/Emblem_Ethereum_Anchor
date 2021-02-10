@@ -48,18 +48,18 @@ contract('L-EMB', async function(accounts) {
     }
 
     this.lemb = await LEMB.new("LEMB","LEMB");
-    this.emb = await EMB.new(e._name,e._ticker,e._decimal,e._supply,e._wallet,this.lemb.address);
+    this.emb = await EMB.new(e._name,e._ticker,e._decimal,e._supply,e._wallet);
     this.lease = await Lease.new(this.emb.address, this.lemb.address,e._wallet);
     this.existingLease = await ExistingLease.new(this.emb.address, this.lemb.address,e._wallet);
     this.vanityExchange = await VanityExchange.new(this.emb.address,e._wallet);
     this.embExchange = await EMBExchange.new(this.emb.address,this.lemb.address,e._wallet);
-
+    await this.emb.setLEMB(this.lease.address)
     await this.emb.setLeaseExchange(this.lease.address);
     await this.lemb.setLeaseExchange(this.lease.address);
   });
   //
   it("should place an offer and cancel it", async function() {
-    let id = 1, price = web3._extend.utils.toWei('1','ether'), amount = Math.pow(10,8), demand = false,  maker = accounts[0];
+    let id = 1, price = web3.utils.toWei('1','ether'), amount = Math.pow(10,8), demand = false,  maker = accounts[0];
 
     //assign approval to the lease contract for the right amount of EMB
     await this.emb.approve(this.lease.address,amount);
@@ -97,7 +97,7 @@ contract('L-EMB', async function(accounts) {
   });
   //
   it('should be able to place a demand and cancel it', async function() {
-    let id = 1, price = web3._extend.utils.toWei('2','ether'), amount = Math.pow(10,8), demand = true, maker = accounts[0];
+    let id = 1, price = web3.utils.toWei('2','ether'), amount = Math.pow(10,8), demand = true, maker = accounts[0];
 
     await this.lease.placeOrder(price, amount, demand, DURATION,fromUtf8("hello"),{value:amount*price/Math.pow(10,8),from:maker});
     // check there is one order
@@ -122,7 +122,7 @@ contract('L-EMB', async function(accounts) {
   });
 
   it("should place an offer and fulfill it completely", async function() {
-    let price = web3._extend.utils.toWei('1','ether'), amount = Math.pow(10,8), demand = false,  maker = accounts[0], taker = accounts[1];
+    let price = web3.utils.toWei('1','ether'), amount = Math.pow(10,8), demand = false,  maker = accounts[0], taker = accounts[1];
 
     //assign approval to the lease contract for the right amount of EMB
     await this.emb.approve(this.lease.address,amount,{from:maker});
@@ -154,7 +154,7 @@ contract('L-EMB', async function(accounts) {
   });
 
   it("should place a demand and fulfill it completely", async function() {
-    let price = web3._extend.utils.toWei('1','ether'), amount = Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
+    let price = web3.utils.toWei('1','ether'), amount = Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
 
     await this.lease.placeOrder(price, amount, demand, DURATION,fromUtf8("hello"),{from:maker,value:amount*price/Math.pow(10,8)});
 
@@ -183,7 +183,7 @@ contract('L-EMB', async function(accounts) {
   });
 
   it("should place a demand and fulfill it partially", async function() {
-    let price = web3._extend.utils.toWei('1','ether'), amount = Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
+    let price = web3.utils.toWei('1','ether'), amount = Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
 
     await this.lease.placeOrder(price, amount, demand, DURATION,fromUtf8("hello"),{from:maker,value:amount*price/Math.pow(10,8)});
 
@@ -217,7 +217,7 @@ contract('L-EMB', async function(accounts) {
 
 
   it("should take a demand and be able to start mining and not be able to sell that EMB, nor transfer the LEMB", async function() {
-    let price = web3._extend.utils.toWei('1','ether'), amount = Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
+    let price = web3.utils.toWei('1','ether'), amount = Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
 
     await this.lease.placeOrder(price, amount, demand, DURATION,fromUtf8("hello"),{from:maker,value:amount*price/Math.pow(10,8)});
     await this.emb.approve(this.lease.address,amount,{from:taker});
@@ -237,7 +237,7 @@ contract('L-EMB', async function(accounts) {
 
 
   it("should take a demand and be able to lease EMB and only transfer EMB up until his lease amount", async function() {
-    let price = web3._extend.utils.toWei('1','ether'), amount = Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
+    let price = web3.utils.toWei('1','ether'), amount = Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
 
     await this.lease.placeOrder(price, amount, demand, DURATION,fromUtf8("hello"),{from:maker,value:amount*price/Math.pow(10,8)});
     await this.emb.approve(this.lease.address,amount,{from:taker});
@@ -266,7 +266,7 @@ contract('L-EMB', async function(accounts) {
 
 
   it('should not be able to retrieve EMB before the lease end date',async function(){
-    let price = web3._extend.utils.toWei('1','ether'), amount = Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
+    let price = web3.utils.toWei('1','ether'), amount = Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
 
     await this.lease.placeOrder(price, amount, demand, DURATION,fromUtf8("hello"),{from:maker,value:amount*price/Math.pow(10,8)});
     await this.emb.approve(this.lease.address,amount,{from:taker});
@@ -281,7 +281,7 @@ contract('L-EMB', async function(accounts) {
   });
 
   it('should be able to retrieve EMB after the lease end date',async function(){
-    let price = web3._extend.utils.toWei('1','ether'), amount = Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
+    let price = web3.utils.toWei('1','ether'), amount = Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
 
     await this.lease.placeOrder(price, amount, demand, DURATION,fromUtf8("hello"),{from:maker,value:amount*price/Math.pow(10,8)});
     await this.emb.approve(this.lease.address,amount,{from:taker});
@@ -305,7 +305,7 @@ contract('L-EMB', async function(accounts) {
 
 
   it('should not be able to transfer LEMB when mining is started', async function(){
-    let price = web3._extend.utils.toWei('1','ether'), amount = Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
+    let price = web3.utils.toWei('1','ether'), amount = Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
 
     await this.lease.placeOrder(price, amount, demand, DURATION,fromUtf8("hello"),{from:maker,value:amount*price/Math.pow(10,8)});
     await this.emb.approve(this.lease.address,amount,{from:taker});
@@ -319,7 +319,7 @@ contract('L-EMB', async function(accounts) {
   });
 
   it('should be able to transfer LEMB and start mining and correctly retrieve EMB', async function(){
-    let price = web3._extend.utils.toWei('1','ether'), amount = Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
+    let price = web3.utils.toWei('1','ether'), amount = Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
 
     await this.lease.placeOrder(price, amount, demand, DURATION,fromUtf8("hello"),{from:maker,value:amount*price/Math.pow(10,8)});
     await this.emb.approve(this.lease.address,amount,{from:taker});
@@ -346,7 +346,7 @@ contract('L-EMB', async function(accounts) {
   });
 
   it('should be able to place an order for LEMB, and fulfill a partial amount', async function(){
-    let price = web3._extend.utils.toWei('1','ether'), amount = 2*Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
+    let price = web3.utils.toWei('1','ether'), amount = 2*Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
 
     await this.lease.placeOrder(price, amount, demand, DURATION,fromUtf8("hello"),{from:maker,value:amount*price/Math.pow(10,8)});
     await this.emb.approve(this.lease.address,amount,{from:taker});
@@ -371,7 +371,7 @@ contract('L-EMB', async function(accounts) {
   });
 
   it('should be able to place an order with LEMB, and fulfill a partial amount', async function(){
-    let price = web3._extend.utils.toWei('1','ether'), amount = 2*Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
+    let price = web3.utils.toWei('1','ether'), amount = 2*Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
 
     await this.lease.placeOrder(price, amount, demand, DURATION,fromUtf8("hello"),{from:maker,value:amount*price/Math.pow(10,8)});
     await this.emb.approve(this.lease.address,amount,{from:taker});
@@ -423,7 +423,7 @@ contract('L-EMB', async function(accounts) {
   };
   //
   it('should be able to purchase Vanity and sell it', async function(){
-    let price = web3._extend.utils.toWei('1','ether'), amount = 100*Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
+    let price = web3.utils.toWei('1','ether'), amount = 100*Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
     let vanityText = fromUtf8("ARJUNRAJJAIN");
 
     // await this.emb.approve(this.emb.address,amount,{from:taker});
@@ -458,7 +458,7 @@ contract('L-EMB', async function(accounts) {
 
 
   it('should be able to place an order for a vanity address', async function(){
-    let price = web3._extend.utils.toWei('1','ether'), amount = 100*Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
+    let price = web3.utils.toWei('1','ether'), amount = 100*Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
     let vanityText = fromUtf8("ARJUNRAJJAIN");
 
     await this.emb.approve(this.emb.address,amount,{from:taker});
@@ -479,7 +479,7 @@ contract('L-EMB', async function(accounts) {
   });
 
   it("should take a demand of EMB", async function() {
-    let price = web3._extend.utils.toWei('1','ether'), amount = Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[2];
+    let price = web3.utils.toWei('1','ether'), amount = Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[2];
 
     await this.emb.transfer(taker,amount,{from:accounts[0]});
     let van = fromUtf8("hello");
