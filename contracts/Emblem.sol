@@ -160,7 +160,7 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
        //Vanities must be lower case
        require((uint8(van[i]) >= 48 && uint8(van[i]) <= 57) || (uint8(van[i]) >= 65 && uint8(van[i]) <= 90));
      }
-     if(vanityPurchaseCost > 0) transferFrom(msg.sender, address(this), vanityPurchaseCost);
+     if(vanityPurchaseCost > 0) this.transferFrom(msg.sender,address(this), vanityPurchaseCost);
 
      vanityAddresses[van] = msg.sender;
      ownedVanities[msg.sender].push(van);
@@ -214,12 +214,12 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
    function releaseEMB(address _from, address _to, uint256 _value) external returns (bool){
      require(!completeFreeze,'ensure freeze is deactivated');
      require(msg.sender == leaseExchange, 'only the lease exchange can call this function');
-     super.transferFrom(_from,_to,_value);
+     transferFrom(_from,_to,_value);
      return true;
    }
 
    function transferFrom(address _from, address _to, uint256 _value) public override returns (bool){
-      require(canTransfer(_from,_value),'value must be transfered from address _from');
+      if(msg.sender != leaseExchange) require(canTransfer(_from,_value),'value must be transfered from address _from');
       super.transferFrom(_from,_to,_value);
       return true;
    }

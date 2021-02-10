@@ -32,7 +32,7 @@ contract('Emblem', async function(accounts) {
 	  // this.lemb = await LEMB.new("LEMB","LEMB");
 	  this.token = await Emblem.new(e._name,e._ticker,e._decimal,e._supply,e._wallet);
 
-    await increaseTimeTo(latestTime() + duration.days(1));
+    await increaseTimeTo(await latestTime() + duration.days(1));
   });
 
   it("should have token details set", async function() {
@@ -57,10 +57,10 @@ contract('Emblem', async function(accounts) {
   });
 
   it("should only allow the owner to freeze transfers",async function() {
-    await increaseTimeTo(latestTime() + duration.days(1));
+    await increaseTimeTo(await latestTime() + duration.days(1));
     await this.token.freezeTransfers(true,{from:accounts[1]}).should.be.rejectedWith(EVMRevert);
     await this.token.transfer(accounts[1], 1000)
-    await increaseTimeTo(latestTime() + duration.days(1));
+    await increaseTimeTo(await latestTime() + duration.days(1));
     assert.equal((await this.token.balanceOf(accounts[1])).toString(), '1000');
     await this.token.freezeTransfers(true);
     await this.token.transfer(accounts[1], 1000).should.be.rejectedWith(EVMRevert);

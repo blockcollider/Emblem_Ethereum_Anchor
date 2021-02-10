@@ -379,7 +379,7 @@ contract NewLeaseExchange is ReentrancyGuard, Ownable {
 
   //Retrieve EMB once mining is finished
   function retrieveEMB(uint256 id) public returns (bool) {
-    require(LEMB.canRetrieveEMB(msg.sender,id));
+    require(LEMB.canRetrieveEMB(msg.sender,id),'EMB cannot be retrieved yet');
 
     uint256 amount = LEMB.getAmount(id);
 

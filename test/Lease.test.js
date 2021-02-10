@@ -15,6 +15,28 @@ var constants = require('../constants.js')(web3);
 
 let DURATION = 15768000;
 
+function padToBytes32(n) {
+    while (n.length < 24) {
+        n = n + "0";
+    }
+    return "0x" + n;
+}
+
+function fromUtf8(str) {
+    str = utf8.encode(str);
+    var hex = "";
+    for (var i = 0; i < str.length; i++) {
+        var code = str.charCodeAt(i);
+        if (code === 0) {
+            break;
+        }
+        var n = code.toString(16);
+        hex += n.length < 2 ? '0' + n : n;
+    }
+
+    return padToBytes32(hex);
+};
+
 require('chai')
     .use(require('chai-as-promised'))
     .use(require('chai-bignumber')(BigNumber))
@@ -53,7 +75,7 @@ contract('L-EMB', async function(accounts) {
     this.existingLease = await ExistingLease.new(this.emb.address, this.lemb.address,e._wallet);
     this.vanityExchange = await VanityExchange.new(this.emb.address,e._wallet);
     this.embExchange = await EMBExchange.new(this.emb.address,this.lemb.address,e._wallet);
-    await this.emb.setLEMB(this.lease.address)
+    await this.emb.setLEMB(this.lemb.address)
     await this.emb.setLeaseExchange(this.lease.address);
     await this.lemb.setLeaseExchange(this.lease.address);
   });
@@ -73,7 +95,7 @@ contract('L-EMB', async function(accounts) {
     assert.equal((await this.lease.retrieveOrders()).length,1);
 
     //check EMB was taken from user
-    assert.equal((await this.emb.balanceOf(maker)).toString(),(await this.emb.totalSupply()).minus(amount).toString());
+    assert.equal((await this.emb.balanceOf(maker)).toString(),(await this.emb.totalSupply() -  amount).toString());
 
     //check the lease has the right amount of EMB
     assert.equal((await this.emb.balanceOf(this.lease.address)).toString(),(amount).toString());
@@ -87,15 +109,15 @@ contract('L-EMB', async function(accounts) {
     assert.equal((await this.lease.retrieveOrders()).length,0);
 
     //check EMB was sent back to user
-    assert.equal((await this.emb.balanceOf(maker)).toString(),(await this.emb.totalSupply()).minus(0).toString());
+    assert.equal((await this.emb.balanceOf(maker)).toString(),(await this.emb.totalSupply() - 0).toString());
 
     //check the lease has the right amount of EMB
     assert.equal((await this.emb.balanceOf(this.lease.address)).toString(),(0).toString());
 
     //check the user has been removed of this order
-    assert.equal((await await this.lease.retrieveMyOrders()).length,0);
+    assert.equal((await this.lease.retrieveMyOrders()).length,0);
   });
-  //
+
   it('should be able to place a demand and cancel it', async function() {
     let id = 1, price = web3.utils.toWei('2','ether'), amount = Math.pow(10,8), demand = true, maker = accounts[0];
 
@@ -140,7 +162,7 @@ contract('L-EMB', async function(accounts) {
     let newMakerBalance = await web3.eth.getBalance(maker);
 
     //check that the maker recieved the right amount of eth
-    // assert.equal(oldMakerBalance.toString(), (newMakerBalance.sub(amount*price/Math.pow(10,8))).toString())
+    // assert.equal(oldMakerBalance.toString(), (newMakerBalance - amount*price/Math.pow(10,8)).toString())
 
     //check that the taker has the right amount of LEMB
     assert.equal((await this.lemb.getAmountForUser(taker)).toString(),(amount*0.999).toString());
@@ -166,10 +188,10 @@ contract('L-EMB', async function(accounts) {
     await this.lease.takeOrder(id,amount,fromUtf8("hello"),{from:taker});
 
     let newTakerBalance = await web3.eth.getBalance(taker);
-
+    console.log({oldTakerBalance,newTakerBalance})
     //check that the taker recieved the right amount of eth and gave up the righta amount of emb
-    assert.isTrue(newTakerBalance.greaterThan(oldTakerBalance));
-    assert.equal((await this.emb.balanceOf(taker)).toString(),(await this.emb.totalSupply()).minus(amount*0.999).toString());
+    assert.isTrue(parseFloat(newTakerBalance) > parseFloat(oldTakerBalance));
+    assert.equal((await this.emb.balanceOf(taker)).toString(),(await this.emb.totalSupply() - amount*0.999).toString());
 
     //check that the maker has the right amount of LEMB
     assert.equal((await this.lemb.getAmountForUser(maker)).toString(),(amount*0.999).toString());
@@ -200,9 +222,9 @@ contract('L-EMB', async function(accounts) {
     let newTakerBalance = await web3.eth.getBalance(taker);
 
     //check that the taker recieved the right amount of eth and gave up the righta amount of emb
-    assert.isTrue(newTakerBalance.greaterThan(oldTakerBalance));
+    assert.isTrue(newTakerBalance > oldTakerBalance);
 
-    assert.equal((await this.emb.balanceOf(taker)).toString(),(await this.emb.totalSupply()).minus(amount*0.999).toString());
+    assert.equal((await this.emb.balanceOf(taker)).toString(),(await this.emb.totalSupply() - amount*0.999).toString());
 
 
     assert.equal((await this.lemb.getAmountForUser(maker)).toString(),(amount*0.999).toString());
@@ -230,7 +252,7 @@ contract('L-EMB', async function(accounts) {
     await this.lease.startMining(id,{from:maker});
     assert.equal((await this.emb.balanceOf(maker)).toString(),(amount*0.999).toString());
     assert.equal((await this.emb.balanceOf(this.lease.address)).toString(),(0).toString());
-    assert.equal((await this.emb.balanceOf(taker)).toString(),(await this.emb.totalSupply()).minus(amount*0.999).toString());
+    assert.equal((await this.emb.balanceOf(taker)).toString(),(await this.emb.totalSupply() - amount*0.999).toString());
 
     await this.emb.transfer(taker,amount,{from:maker}).should.be.rejectedWith(EVMRevert);
   });
@@ -251,7 +273,7 @@ contract('L-EMB', async function(accounts) {
     await this.lease.startMining(id,{from:maker});
     assert.equal((await this.emb.balanceOf(maker)).toString(),(amount*0.999).toString());
     assert.equal((await this.emb.balanceOf(this.lease.address)).toString(),(0).toString());
-    assert.equal((await this.emb.balanceOf(taker)).toString(),(await this.emb.totalSupply()).minus(amount*0.999).toString());
+    assert.equal((await this.emb.balanceOf(taker)).toString(),(await this.emb.totalSupply() - amount*0.999).toString());
 
     await this.emb.transfer(maker,100,{from:taker});
 
@@ -279,7 +301,7 @@ contract('L-EMB', async function(accounts) {
     await this.lease.startMining(id,{from:maker});
     await this.lease.retrieveEMB(id,{from:taker}).should.be.rejectedWith(EVMRevert);
   });
-
+  //
   it('should be able to retrieve EMB after the lease end date',async function(){
     let price = web3.utils.toWei('1','ether'), amount = Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
 
@@ -292,18 +314,16 @@ contract('L-EMB', async function(accounts) {
 
     await this.emb.approve(this.lease.address,amount,{from:maker});
     await this.lease.startMining(id,{from:maker});
-
-    await increaseTimeTo(latestTime() + duration.seconds(DURATION + 1));
-
+    await increaseTimeTo(DURATION + 1);
     await this.lease.retrieveEMB(id,{from:taker});
     await this.emb.transfer(maker,amount,{from:taker});
     await this.emb.transfer(taker,amount,{from:maker});
     assert.equal((await this.emb.balanceOf(maker)).toString(),(0).toString());
     assert.equal((await this.emb.balanceOf(this.lease.address)).toString(),(0).toString());
-    assert.equal((await this.emb.balanceOf(taker)).toString(),(await this.emb.totalSupply()).minus(0).toString());
+    assert.equal((await this.emb.balanceOf(taker)).toString(),(await this.emb.totalSupply()).toString());
   });
-
-
+  //
+  //
   it('should not be able to transfer LEMB when mining is started', async function(){
     let price = web3.utils.toWei('1','ether'), amount = Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
 
@@ -317,7 +337,7 @@ contract('L-EMB', async function(accounts) {
     await this.lease.startMining(id,{from:maker});
     await this.lemb.transferFrom(maker,accounts[2],{from:maker}).should.be.rejectedWith(EVMRevert);
   });
-
+  //
   it('should be able to transfer LEMB and start mining and correctly retrieve EMB', async function(){
     let price = web3.utils.toWei('1','ether'), amount = Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
 
@@ -333,16 +353,15 @@ contract('L-EMB', async function(accounts) {
     await this.lease.startMining(id,{from:accounts[2]});
     assert.equal((await this.emb.balanceOf(accounts[2])).toString(),(amount*0.999).toString());
     assert.equal((await this.emb.balanceOf(this.lease.address)).toString(),(0).toString());
-    assert.equal((await this.emb.balanceOf(taker)).toString(),(await this.emb.totalSupply()).minus(amount*0.999).toString());
-
-    await increaseTimeTo(latestTime() + duration.seconds(DURATION+1));
+    assert.equal((await this.emb.balanceOf(taker)).toString(),(await this.emb.totalSupply() - amount*0.999).toString());
+    await increaseTimeTo();
     await this.lease.retrieveEMB(id,{from:taker});
     await this.emb.transfer(accounts[2],amount,{from:taker});
     await this.emb.transfer(taker,amount,{from:accounts[2]});
 
     assert.equal((await this.emb.balanceOf(maker)).toString(),(0).toString());
     assert.equal((await this.emb.balanceOf(this.lease.address)).toString(),(0).toString());
-    assert.equal((await this.emb.balanceOf(taker)).toString(),(await this.emb.totalSupply()).minus(0).toString());
+    assert.equal((await this.emb.balanceOf(taker)).toString(),(await this.emb.totalSupply()).toString());
   });
 
   it('should be able to place an order for LEMB, and fulfill a partial amount', async function(){
@@ -400,34 +419,12 @@ contract('L-EMB', async function(accounts) {
   });
 
   //
-  function padToBytes32(n) {
-      while (n.length < 24) {
-          n = n + "0";
-      }
-      return "0x" + n;
-  }
-
-  function fromUtf8(str) {
-      str = utf8.encode(str);
-      var hex = "";
-      for (var i = 0; i < str.length; i++) {
-          var code = str.charCodeAt(i);
-          if (code === 0) {
-              break;
-          }
-          var n = code.toString(16);
-          hex += n.length < 2 ? '0' + n : n;
-      }
-
-      return padToBytes32(hex);
-  };
-  //
   it('should be able to purchase Vanity and sell it', async function(){
     let price = web3.utils.toWei('1','ether'), amount = 100*Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
     let vanityText = fromUtf8("ARJUNRAJJAIN");
 
-    // await this.emb.approve(this.emb.address,amount,{from:taker});
-    // assert.equal(await this.emb.allowance(taker,this.emb.address),amount);
+    await this.emb.approve(this.emb.address,amount,{from:taker});
+    assert.equal(await this.emb.allowance(taker,this.emb.address),amount);
     await this.emb.purchaseVanity(fromUtf8("aRUNRAJJAIN"),{from:taker}).should.be.rejectedWith(EVMRevert);
 
     await this.emb.purchaseVanity(fromUtf8(" RUNRAJJAIN"),{from:taker}).should.be.rejectedWith(EVMRevert);
@@ -455,11 +452,12 @@ contract('L-EMB', async function(accounts) {
     owner = await this.emb.getVanityOwner(vanityText);
     assert.equal(owner,maker);
   });
-
-
+  //
+  //
   it('should be able to place an order for a vanity address', async function(){
-    let price = web3.utils.toWei('1','ether'), amount = 100*Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
+    let price = web3.utils.toWei('1','ether'), amount = 10*Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[0];
     let vanityText = fromUtf8("ARJUNRAJJAIN");
+    console.log({taker,emb:this.emb.address})
 
     await this.emb.approve(this.emb.address,amount,{from:taker});
     assert.equal(await this.emb.allowance(taker,this.emb.address),amount);
@@ -477,7 +475,7 @@ contract('L-EMB', async function(accounts) {
     owner = await this.emb.getVanityOwner(vanityText);
     assert.equal(owner,maker);
   });
-
+  //
   it("should take a demand of EMB", async function() {
     let price = web3.utils.toWei('1','ether'), amount = Math.pow(10,8), demand = true,  maker = accounts[1], taker = accounts[2];
 
@@ -492,7 +490,7 @@ contract('L-EMB', async function(accounts) {
     await this.embExchange.takeOrder(id,amount,van,{from:taker});
 
     assert.equal((await this.emb.balanceOf(maker)).toString(),(amount*0.999).toString());
-    assert.equal((await this.emb.balanceOf(accounts[0])).toString(),(await this.emb.totalSupply()).minus(amount).add(amount*.001).toString());
+    assert.equal((await this.emb.balanceOf(accounts[0])).toString(),(await this.emb.totalSupply() - amount + amount*.001).toString());
 
     assert.equal((await this.emb.balanceOf(this.embExchange.address)).toString(),(0).toString());
     assert.equal((await this.emb.balanceOf(taker)).toString(),(0));
