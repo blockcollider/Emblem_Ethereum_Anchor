@@ -5,6 +5,14 @@ const BigNumber = require('bignumber.js');
 var Emblem = artifacts.require("Emblem");
 var LEMB = artifacts.require("LeasedEmblem");
 var constants = require('../constants.js')(web3);
+var contributions = require('../contributors.json');
+
+function padToBytes7(n) {
+    while (n.length < 14) {
+        n = "0" + n;
+    }
+    return n;
+}
 
 require('chai')
     .use(require('chai-as-promised'))
@@ -15,8 +23,7 @@ contract('Emblem', async function(accounts) {
 
   beforeEach(async function () {
     Emblem.defaults({
-      from: accounts[0],
-      // gas: 472197
+      from: accounts[0]
     })
 
     let e = {
@@ -27,9 +34,6 @@ contract('Emblem', async function(accounts) {
       _wallet: accounts[0]
     }
 
-    // this.token = await Emblem.new(e._name,e._ticker,e._decimal,e._supply,e._wallet);
-
-	  // this.lemb = await LEMB.new("LEMB","LEMB");
 	  this.token = await Emblem.new(e._name,e._ticker,e._decimal,e._supply,e._wallet);
 
     await increaseTimeTo(await latestTime() + duration.days(1));
@@ -42,6 +46,26 @@ contract('Emblem', async function(accounts) {
     assert.equal((await this.token.totalSupply()).toString(),constants.supply.toString());
     // assert.equal((await this.token.balanceOf(accounts[0])).toString(), (await this.token.totalSupply()).minus(constants.sum).toString());
   });
+
+  // it("should deploy correctly", async function() {
+  //   let addressesAndAmounts = contributions.map(({address,balance}) => {
+  //     return `${address}${padToBytes7(Math.round(balance*Math.pow(10,8)).toString(16))}`
+  //   });
+  //
+  //   let split = 230;
+  //   for (let j = 1; j <= Math.ceil(contributions.length/split); j++){
+  //     let addressesAndAmounts2 = addressesAndAmounts.filter((key,i)=>{
+  //       return i >= (split * (j-1)) && i < split*j;
+  //     });
+  //     await this.token.multiTransfer(addressesAndAmounts2);
+  //   }
+  //   await this.token.freezeTransfers(true)
+  //   await this.token.transfer(accounts[1], 2000,{from:accounts[0]}).should.be.rejectedWith(EVMRevert);
+  //
+  //   for(let {address,balance} of contributions){
+  //     assert.equal((await this.token.balanceOf(address)).toString(), Math.round(balance*Math.pow(10,8)));
+  //   }
+  // });
 
   it("should be able to transfer", async function() {
     await this.token.transfer(accounts[1], 2000,{from:accounts[0]});
@@ -65,28 +89,6 @@ contract('Emblem', async function(accounts) {
     await this.token.freezeTransfers(true);
     await this.token.transfer(accounts[1], 1000).should.be.rejectedWith(EVMRevert);
   });
-
-  function padToBytes12(n) {
-      while (n.length < 24) {
-          n = "0" + n;
-      }
-      return n;
-  }
-
-  function fromUtf8(str) {
-      str = utf8.encode(str);
-      var hex = "";
-      for (var i = 0; i < str.length; i++) {
-          var code = str.charCodeAt(i);
-          if (code === 0) {
-              break;
-          }
-          var n = code.toString(16);
-          hex += n.length < 2 ? '0' + n : n;
-      }
-
-      return padToBytes32(hex);
-  };
 
   it("should allow owner to freeze transfer an account and then unfreeze and allow for transfers to work again",async function() {
     await this.token.freezeAccount(accounts[1],true);

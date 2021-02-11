@@ -433,12 +433,19 @@ contract('L-EMB', async function(accounts) {
 
     await this.emb.purchaseVanity(fromUtf8("AR UNRA-JAIN"),{from:taker}).should.be.rejectedWith(EVMRevert);
 
-    await this.emb.purchaseVanity(fromUtf8("ABCDEFGHIJKL"),{from:taker});
+    await this.emb.purchaseVanity(fromUtf8("ABCDEFGHIJKL"),{from:taker}).should.be.rejectedWith(EVMRevert);
+
+    await this.emb.setVanityPurchaseReceiver(0).should.be.rejectedWith(EVMRevert);
+
+    await this.emb.setVanityPurchaseReceiver(accounts[2])
 
     await this.emb.purchaseVanity(vanityText,{from:taker});
     //
     let owner = await this.emb.getVanityOwner(vanityText);
+
     assert.equal(owner,taker);
+
+    assert.equal((await this.emb.balanceOf(accounts[2])).toString(),Math.round(Math.pow(10,8)).toString());
 
     await this.emb.approveVanity(this.vanityExchange.address,vanityText,{from:taker});
 
@@ -462,7 +469,12 @@ contract('L-EMB', async function(accounts) {
     await this.emb.approve(this.emb.address,amount,{from:taker});
     assert.equal(await this.emb.allowance(taker,this.emb.address),amount);
 
+    await this.emb.setVanityPurchaseCost(amount)
+    await this.emb.setVanityPurchaseReceiver(accounts[2])
     await this.emb.purchaseVanity(vanityText,{from:taker});
+
+    assert.equal((await this.emb.balanceOf(accounts[2])).toString(),Math.round(10*Math.pow(10,8)).toString());
+
     //
     let owner = await this.emb.getVanityOwner(vanityText);
     assert.equal(owner,taker);

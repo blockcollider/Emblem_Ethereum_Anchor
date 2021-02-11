@@ -14,6 +14,7 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
    bool public completeFreeze;
    bool internal useVanityFees;
    address internal leaseExchange;
+   address internal vanityPurchaseReceiver;
    uint256 internal vanityPurchaseCost = 1 * (10 ** 8); //1 EMB
    bytes12[] internal allVanities;
    LeasedEmblem internal LEMB;
@@ -49,6 +50,11 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
 
    function enableFees(bool enabled) public onlyOwner {
      useVanityFees = enabled;
+   }
+
+   function setVanityPurchaseReceiver(address _address) public onlyOwner {
+     require(_address != address(0), "Vanity Purchase Receiver address cannot be set to 0");
+     vanityPurchaseReceiver = _address;
    }
 
    function setLEMB(address _lemb) public onlyOwner {
@@ -154,13 +160,14 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
    }
 
    function purchaseVanity(bytes12 van) public returns (bool) {
+     require(vanityPurchaseReceiver != address(0),'vanity purchase receiver must be set');
      require(vanityAddresses[van] == address(0),'vanity must not be purchased so far');
 
      for(uint8 i = 0; i < 12; i++){
        //Vanities must be lower case
        require((uint8(van[i]) >= 48 && uint8(van[i]) <= 57) || (uint8(van[i]) >= 65 && uint8(van[i]) <= 90));
      }
-     if(vanityPurchaseCost > 0) this.transferFrom(msg.sender,address(this), vanityPurchaseCost);
+     if(vanityPurchaseCost > 0) this.transferFrom(msg.sender,vanityPurchaseReceiver, vanityPurchaseCost);
 
      vanityAddresses[van] = msg.sender;
      ownedVanities[msg.sender].push(van);
