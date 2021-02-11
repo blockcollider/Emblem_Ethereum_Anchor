@@ -48,6 +48,10 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
      emit VanityPurchaseCost(cost);
    }
 
+   function getVanityPurchaseCost() public view returns (uint256) {
+     return vanityPurchaseCost
+   }
+
    function enableFees(bool enabled) public onlyOwner {
      useVanityFees = enabled;
    }
