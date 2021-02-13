@@ -205,7 +205,7 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
    }
 
    function releaseEMB(address _from, address _to, uint256 _value) external returns (bool){
-     require(address(0) != leaseExchange, 'Lease Exchange must be activated')
+     require(address(0) != leaseExchange, 'Lease Exchange must be activated');
      require(msg.sender == leaseExchange, 'only the lease exchange can call this function');
      transferFrom(_from,_to,_value);
      return true;
