@@ -11,7 +11,6 @@ import "./LeasedEmblem.sol";
 contract Emblem is ERC20, ERC20Capped, Ownable {
   using SafeMath for uint256;
 
-   bool public completeFreeze;
    bool internal useVanityFees;
    address internal leaseExchange;
    address internal vanityPurchaseReceiver;
@@ -25,7 +24,6 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
    mapping (bytes12 => uint256) internal allVanitiesIndex;
    mapping (address => mapping (bytes12 => address)) internal allowedVanities;
    mapping (bytes12 => uint256) internal vanityFees;
-   mapping (address => bool) public frozenAccounts;
 
    event TransferVanity(address indexed from, address indexed to, bytes12 vanity);
    event ApprovedVanity(address indexed from, address indexed to, bytes12 vanity);
@@ -183,20 +181,8 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
      return true;
    }
 
-   function freezeTransfers(bool _freeze) public onlyOwner {
-     completeFreeze = _freeze;
-   }
-
-   function freezeAccount(address _target, bool _freeze) public onlyOwner {
-     frozenAccounts[_target] = _freeze;
-   }
-
-   //ensure the account is not frozen
-   //ensure their is no complete freeze
    //ensure the amount being transferred does not dip into EMB owned through leases.
    function canTransfer(address _account,uint256 _value) internal view returns (bool) {
-      require(!frozenAccounts[_account],'account cannot be frozen');
-      require(!completeFreeze,'transfers cannot be frozen');
       if(address(LEMB)!= address(0)){
         require((_value.add(LEMB.getAmountForUserMining(_account)) <= balanceOf(_account)),'value being sent cannot dip into EMB acquired through leasing');
       }
@@ -218,12 +204,8 @@ contract Emblem is ERC20, ERC20Capped, Ownable {
       return true;
    }
 
-   function isFrozen(address _target) public view returns(bool) {
-     return completeFreeze || frozenAccounts[_target];
-   }
-
    function releaseEMB(address _from, address _to, uint256 _value) external returns (bool){
-     require(!completeFreeze,'ensure freeze is deactivated');
+     require(address(0) != leaseExchange, 'Lease Exchange must be activated')
      require(msg.sender == leaseExchange, 'only the lease exchange can call this function');
      transferFrom(_from,_to,_value);
      return true;
