@@ -14,12 +14,11 @@ contract NewLeaseExchange is ReentrancyGuard, Ownable {
   struct Order {
     uint256 id;
     address payable maker;
-    bytes12 makerVanity;
     uint256 amount;
     uint256 price;
     bool demand;
-    uint256 duration;
     uint256 createdAt;
+    uint256 expiresAt;
   }
 
   // order id -> order
@@ -153,7 +152,6 @@ contract NewLeaseExchange is ReentrancyGuard, Ownable {
       order.id != id ||
       amount <= 0
     ) return (false);
-
 
     //if above, set amount to that of the order's amount
     if(amount > order.amount) amount = order.amount;

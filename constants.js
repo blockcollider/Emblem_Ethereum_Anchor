@@ -8,6 +8,5 @@ module.exports = function(web3) {
     ticker : "EMB",
     decimals : 8,
     supply : (new BigNumber(300000000)).times(bcexponent),
-    freezeDuration : 0
   }
 }

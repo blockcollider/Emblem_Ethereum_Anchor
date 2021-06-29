@@ -47,9 +47,22 @@ contract('Emblem', async function(accounts) {
     // assert.equal((await this.token.balanceOf(accounts[0])).toString(), (await this.token.totalSupply()).minus(constants.sum).toString());
   });
 
-  it("should deploy correctly", async function() {
+  it("should cost less to do a multitransfer correctly", async function() {
+    let addressesAndAmounts = [{address:accounts[2],balance:Math.pow(10,8)}].map(({address,balance}) => {
+      return `${address}${padToBytes7(Math.round(balance).toString(16))}`
+    });
+
+    let tx = await this.token.transfer(accounts[2], Math.pow(10,8))
+    assert.equal((await this.token.balanceOf(accounts[2])).toString(), Math.round(Math.pow(10,8)).toString());
+
+    let tx2 = await this.token.multiTransfer(addressesAndAmounts);
+
+    assert.equal((await this.token.balanceOf(accounts[2])).toString(), Math.round(2*Math.pow(10,8)).toString());
+  });
+
+  it("should fail multitransfer of more than transfer amount", async function() {
     let addressesAndAmounts = contributions.map(({address,balance}) => {
-      return `${address}${padToBytes7(Math.round(balance*Math.pow(10,8)).toString(16))}`
+      return `${address}${padToBytes7(Math.round(30000000*Math.pow(10,8)).toString(16))}`
     });
 
     let split = 230;
@@ -57,13 +70,32 @@ contract('Emblem', async function(accounts) {
       let addressesAndAmounts2 = addressesAndAmounts.filter((key,i)=>{
         return i >= (split * (j-1)) && i < split*j;
       });
-      await this.token.multiTransfer(addressesAndAmounts2);
+      await this.token.multiTransfer(addressesAndAmounts2).should.be.rejectedWith(EVMRevert);
     }
+    assert.equal((await this.token.balanceOf(accounts[0])).toString(), Math.round(300000000*Math.pow(10,8)));
 
-    for(let {address,balance} of contributions){
-      assert.equal((await this.token.balanceOf(address)).toString(), Math.round(balance*Math.pow(10,8)));
-    }
+    // for(let {address,balance} of contributions){
+    //   assert.equal((await this.token.balanceOf(address)).toString(), Math.round(balance*Math.pow(10,8)));
+    // }
   });
+
+  // it("should deploy correctly", async function() {
+  //   let addressesAndAmounts = contributions.map(({address,balance}) => {
+  //     return `${address}${padToBytes7(Math.round(balance*Math.pow(10,8)).toString(16))}`
+  //   });
+  //
+  //   let split = 230;
+  //   for (let j = 1; j <= Math.ceil(contributions.length/split); j++){
+  //     let addressesAndAmounts2 = addressesAndAmounts.filter((key,i)=>{
+  //       return i >= (split * (j-1)) && i < split*j;
+  //     });
+  //     await this.token.multiTransfer(addressesAndAmounts2);
+  //   }
+  //
+  //   for(let {address,balance} of contributions){
+  //     assert.equal((await this.token.balanceOf(address)).toString(), Math.round(balance*Math.pow(10,8)));
+  //   }
+  // });
 
   it("should be able to transfer", async function() {
     await this.token.transfer(accounts[1], 2000,{from:accounts[0]});

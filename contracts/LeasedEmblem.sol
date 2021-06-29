@@ -11,37 +11,27 @@ contract LeasedEmblem is ERC721, Ownable {
 
   address internal leaseExchange;
 
-
   struct Metadata {
     uint256 amount;
     address leasor;
-    uint256 duration;
-    uint256 tradeExpiry;
-    uint256 leaseExpiry;
+    uint256 expiry
     bool isMining;
   }
 
   mapping(uint256 => Metadata) public metadata;
 
-
   mapping(address => uint256[]) internal leasedTokens;
-
 
   mapping(uint256 => uint256) internal leasedTokensIndex;
 
-
   mapping (uint256 => address) internal tokenLeasor;
-
 
   mapping (address => uint256) internal leasedTokensCount;
 
   uint256 highestId = 1;
 
-  uint256 sixMonths = 15768000;
-
   constructor (string memory _name, string memory _symbol) public ERC721(_name, _symbol) {
   }
-
 
   function getNewId() public view returns(uint256) {
     return highestId;
@@ -100,9 +90,9 @@ contract LeasedEmblem is ERC721, Ownable {
     return amount;
   }
 
-  function setMetadata(uint256 _tokenId, uint256 amount, address leasor, uint256 duration,uint256 tradeExpiry, uint256 leaseExpiry) internal {
+  function setMetadata(uint256 _tokenId, uint256 amount, address leasor, uint256 expiry) internal {
     require(_exists(_tokenId));
-    metadata[_tokenId]= Metadata(amount,leasor,duration,tradeExpiry,leaseExpiry,false);
+    metadata[_tokenId]= Metadata(amount,leasor,expiry,false);
   }
 
   function getMetadata(uint256 _tokenId) public view returns (uint256, address, uint256, uint256,uint256, bool) {
@@ -110,9 +100,7 @@ contract LeasedEmblem is ERC721, Ownable {
     return (
       metadata[_tokenId].amount,
       metadata[_tokenId].leasor,
-      metadata[_tokenId].duration,
-      metadata[_tokenId].tradeExpiry,
-      metadata[_tokenId].leaseExpiry,
+      metadata[_tokenId].expiry,
       metadata[_tokenId].isMining
     );
   }
@@ -144,14 +132,9 @@ contract LeasedEmblem is ERC721, Ownable {
     return metadata[_tokenId].amount;
   }
 
-  function getTradeExpiry(uint256 _tokenId) public view returns (uint256) {
-    require(_exists(_tokenId));
-    return metadata[_tokenId].tradeExpiry;
-  }
-
-  function getDuration(uint256 _tokenId) public view returns (uint256) {
-    require(_exists(_tokenId));
-    return metadata[_tokenId].duration;
+  function getExpiry(uint256 _tokenId) public view returns (uint256) {
+    require(exists(_tokenId));
+    return metadata[_tokenId].expiry;
   }
 
   function getIsMining(uint256 _tokenId) public view returns (bool) {
@@ -163,30 +146,24 @@ contract LeasedEmblem is ERC721, Ownable {
     require(msg.sender == leaseExchange);
     require(_exists(_tokenId));
     require(ownerOf(_tokenId) == _owner);
-    require(block.timestamp < metadata[_tokenId].tradeExpiry);
+    require(block.timestamp < metadata[_tokenId].expiry);
     require(metadata[_tokenId].isMining == false);
     Metadata storage m = metadata[_tokenId];
     m.isMining = true;
-    m.leaseExpiry = block.timestamp + m.duration;
     return true;
   }
 
   function canRetrieveEMB(address _leasor, uint256 _tokenId) public view returns (bool) {
     require(_exists(_tokenId));
     require(metadata[_tokenId].leasor == _leasor);
-    if(metadata[_tokenId].isMining == false) {
-      return(block.timestamp > metadata[_tokenId].leaseExpiry);
-    }
-    else {
-      return(block.timestamp > metadata[_tokenId].tradeExpiry);
-    }
+    return(block.timestamp > metadata[_tokenId].expiry);
   }
 
   function endLease(address _leasee, uint256 _tokenId) public {
     require(msg.sender == leaseExchange);
     require(_exists(_tokenId));
     require(ownerOf(_tokenId) == _leasee);
-    require(block.timestamp > metadata[_tokenId].leaseExpiry);
+    require(block.timestamp > metadata[_tokenId].expiry);
     removeTokenFromLeasor(metadata[_tokenId].leasor, _tokenId);
     _burn(_tokenId);
   }
@@ -195,7 +172,7 @@ contract LeasedEmblem is ERC721, Ownable {
     require(_exists(_tokenId));
     require(ownerOf(_tokenId) == msg.sender);
     require(metadata[_tokenId].isMining == false);
-    require(block.timestamp < metadata[_tokenId].tradeExpiry);
+    require(block.timestamp < metadata[_tokenId].expiry);
     require(amount < getAmount(_tokenId));
 
     uint256 _newTokenId = getNewId();
@@ -205,17 +182,17 @@ contract LeasedEmblem is ERC721, Ownable {
 
     _mint(msg.sender, _newTokenId);
     addTokenToLeasor(m.leasor, _newTokenId);
-    setMetadata(_newTokenId, amount, m.leasor, m.duration,m.tradeExpiry, 0);
+    setMetadata(_newTokenId, amount, m.leasor, m.expiry);
     highestId = highestId + 1;
   }
 
-  function mintUniqueTokenTo(address _to, uint256 amount, address leasor, uint256 duration) public {
+  function mintUniqueTokenTo(address _to, uint256 amount, address leasor, uint256 expiry) public {
     require(msg.sender == leaseExchange);
     uint256 _tokenId = getNewId();
     _mint(_to, _tokenId);
     addTokenToLeasor(leasor, _tokenId);
-    uint256 tradeExpiry = block.timestamp + sixMonths;
-    setMetadata(_tokenId, amount, leasor, duration,tradeExpiry, 0);
+    //need to check expiry
+    setMetadata(_tokenId, amount, leasor, expiry);
     highestId = highestId + 1;
   }
 
